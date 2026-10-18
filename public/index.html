@@ -1,0 +1,1016 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>盆栽小舖</title>
+<!--
+ 盆栽小舖 v0.1 原型（單檔 HTML）
+ 開工三決定
+ 1. 方向：直式／橫式皆可
+ 2. 縮放：短邊固定 720，長邊延伸（多出的空間放更多盆位，不留黑邊）
+ 3. 風格：剪紙水彩暖色；所有顏色在 THEME / C，邏輯不寫死顏色
+ 世界模型在 //<SIM> … //</SIM>（純函式，不碰 DOM，Code 可直接拆成模組）
+ 測試入口：標題畫面「新遊戲（盆景台已解鎖）」，或網址 #bonsai
+-->
+<style>
+/* 版面：全螢幕畫布＋浮動 HUD／工具列／底部面板；單一暖紙色主題 */
+:root{--paper:#f7eedd;--ink:#4b3a30;--ink2:#7a6556;--accent:#e58a5b;--leaf:#6fae7c;--water:#6aa9d6;--warn:#d9654b;--card:rgba(255,250,240,.94);--line:#e4d3b8;--shadow:rgba(120,90,60,.25);--btn:#fff6e6;--btn2:#ffe3cf}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--paper);color:var(--ink);font-family:ui-rounded,"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;touch-action:none;overscroll-behavior:none}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+#hud{position:fixed;left:0;right:0;top:0;padding:calc(env(safe-area-inset-top) + 8px) calc(env(safe-area-inset-right) + 10px) 0 calc(env(safe-area-inset-left) + 10px);display:flex;justify-content:space-between;align-items:flex-start;gap:8px;pointer-events:none;z-index:6}
+#hud>*{pointer-events:auto}
+.pill{background:var(--card);border:1.5px solid var(--line);border-radius:999px;padding:6px 12px;font-size:clamp(13px,3.4vw,16px);box-shadow:0 2px 0 var(--shadow);display:flex;gap:8px;align-items:center;white-space:nowrap}
+.pill button{border:0;background:transparent;font-size:clamp(16px,4.4vw,20px);padding:2px 5px;border-radius:10px;color:var(--ink);min-width:32px;min-height:32px}
+.pill button.on{background:var(--btn2)}
+#tray{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 8px);display:flex;gap:8px;padding:8px;background:var(--card);border:1.5px solid var(--line);border-radius:22px;box-shadow:0 3px 0 var(--shadow);z-index:5}
+.tool{width:clamp(54px,15vw,68px);height:clamp(54px,15vw,68px);border-radius:16px;border:2px solid var(--line);background:var(--btn);font-size:clamp(22px,6vw,28px);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1;color:var(--ink);touch-action:none;padding:0}
+.tool small{font-size:11px;color:var(--ink2)}
+.tool.on{border-color:var(--accent);background:var(--btn2)}
+#sheet{position:fixed;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom) + 96px);max-height:34vh;background:var(--card);border:1.5px solid var(--line);border-radius:20px;box-shadow:0 3px 0 var(--shadow);display:none;flex-direction:column;overflow:hidden;z-index:4}
+#sheet.open{display:flex}
+#sheet .hd{display:flex;align-items:baseline;gap:8px;padding:10px 14px 4px}
+#sheet .hd b{font-size:18px}
+#sheet .hd span{font-size:13px;color:var(--ink2);flex:1}
+#sheet .hd button{border:0;background:transparent;font-size:18px;color:var(--ink2);min-width:34px;min-height:34px}
+.tabs{display:flex;gap:6px;padding:0 12px 6px}
+.tabs button{flex:1;border:1.5px solid var(--line);background:var(--btn);border-radius:12px;padding:6px 0;font-size:14px;color:var(--ink)}
+.tabs button.on{background:var(--btn2);border-color:var(--accent)}
+.body{overflow:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;padding:4px 14px 12px;font-size:14px;line-height:1.55}
+.chip{display:inline-block;background:var(--btn);border:1.5px solid var(--line);border-radius:999px;padding:3px 10px;margin:0 6px 6px 0}
+.act{border:1.5px solid var(--line);background:var(--btn);border-radius:12px;padding:8px 12px;font-size:14px;color:var(--ink);margin:2px 6px 2px 0}
+.meter{margin:6px 0}
+.meter .t{display:flex;justify-content:space-between;font-size:13px;color:var(--ink2)}
+.meter .bar{height:9px;border-radius:6px;background:var(--btn);border:1px solid var(--line);position:relative;overflow:hidden}
+.meter .bar i{position:absolute;left:0;top:0;bottom:0;border-radius:6px}
+.meter .bar u{position:absolute;top:-1px;bottom:-1px;width:2px;background:var(--ink2);opacity:.55}
+.note{font-size:12px;color:var(--ink2)}
+#chart{width:100%;height:65px;display:block;margin-top:6px}
+.log{font-size:13px;padding:3px 0;border-bottom:1px dashed var(--line)}
+.log em{font-style:normal;color:var(--ink2);margin-right:6px}
+#toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 58px);transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:8px 14px;border-radius:14px;font-size:14px;max-width:86vw;text-align:center;opacity:0;transition:opacity .25s;pointer-events:none;z-index:9}
+#toast.on{opacity:.95}
+#title{position:fixed;inset:0;background:var(--paper);display:flex;align-items:center;justify-content:center;z-index:20}
+#title .card{text-align:center;padding:28px 24px;max-width:340px}
+#title h1{margin:0 0 6px;font-size:34px;letter-spacing:4px}
+#title p{margin:4px 0 18px;color:var(--ink2);font-size:15px}
+#title button{display:block;width:100%;margin:8px 0;padding:13px;border-radius:16px;border:2px solid var(--accent);background:var(--btn2);font-size:18px;color:var(--ink)}
+#title button.alt{border-color:var(--line);background:var(--btn);font-size:15px}
+@media (min-aspect-ratio:5/4){
+ #sheet{left:auto;right:10px;top:58px;bottom:10px;width:min(360px,34vw);max-height:none}
+#tray{left:12px;transform:none}
+}
+/* ALPHA 版面：手機觸控鈕放大、2K 整組放大（Master 2026-10-06 驗收標準） */
+.pill button{min-width:44px;min-height:44px}
+.tool small{font-size:14px}
+@media (max-width:600px){#hud{flex-wrap:wrap}#speed{gap:2px;margin-left:auto}.pill button{min-width:40px;padding:2px}}
+@media (min-width:1400px){.pill{font-size:22px;padding:8px 16px}.pill button{font-size:26px;min-width:60px;min-height:60px}.tool{width:100px;height:100px;font-size:40px}.tool small{font-size:20px}#sheet{font-size:20px}}
+</style>
+<canvas id="cv"></canvas>
+<div id="hud">
+ <div class="pill"><b id="dateTxt"></b><span id="wxTxt"></span></div>
+ <div class="pill" id="speed"><button data-s="0">⏸</button><button data-s="1" class="on">▶</button><button data-s="4">⏩</button><button data-s="16">⏭</button><button id="mute">🔊</button><button id="reset">↺</button></div>
+</div>
+<div id="tray">
+ <button class="tool" data-tool="water">💧<small>水壺</small></button>
+ <button class="tool" data-tool="fert">🌱<small>肥料</small></button>
+ <button class="tool" data-tool="scissors">✂️<small>剪刀</small></button>
+ <button class="tool" data-tool="pot">🪴<small>換盆</small></button>
+ <button class="tool" data-tool="wire" id="wireBtn" style="display:none">🪢<small>蟠紮</small></button>
+</div>
+<div id="sheet"></div>
+<div id="toast"></div>
+<div id="title"><div class="card"><h1>盆栽小舖</h1><p>看葉子，不看數字。<br>拖水壺、拖盆子，慢慢把它們養活。</p><button id="goBtn">開始</button><button id="newBtn" class="alt" style="display:none">重新開始</button><button id="bonBtn" class="alt">新遊戲（盆景台已解鎖）</button></div></div>
+
+<!-- 程式碼 MIT License；美術為程式繪製（CC BY-NC 4.0）。Copyright (c) 2026 Yen-Ting R. Lin (roylin1003). A collaborative project by roylin1003 and Claude. 全部由 AI 協作製作。致謝見 credits.html -->
+<script src="https://beacon.roynexus.com/b.js"></script>
+<script>
+'use strict';
+//<SIM>
+const START_DOY=74;
+const POT=[{n:'小盆',v:.6},{n:'中盆',v:1},{n:'大盆',v:1.7}];
+const SPOT={win:{n:'窗邊',dir:-.9,accl:.55},room:{n:'室內',dir:-.5,accl:.14},bon:{n:'盆景台',dir:-.4,accl:.35},balc:{n:'陽台',dir:0,accl:.8}};
+// 參數皆為「遊戲尺度的假設值」，已在設計指南列出真實依據與待校正處
+const SP={
+ pothos:{name:'黃金葛',kind:'foliage',rb:5,Ik:.22,Ihigh:.95,Pmax:.0125,r0:.0017,rn:.25,Tmin:10,Tlo:21,Thi:30,Tmax:38,Tcold:12,wp:.15,fc:.65,drain:.22,wetLim:.55,use:1,LAref:8,rootMax:[2.4,5.5,11],nodeCost:.16,res:.3,cap:2.2,rs:.38},
+ echeveria:{name:'石蓮花',kind:'succ',rb:5,Ik:.5,Ihigh:9,Pmax:.0135,r0:.0013,rn:.1,Tmin:3,Tlo:15,Thi:25,Tmax:35,Tcold:2,wp:.1,fc:.42,drain:.45,wetLim:.3,use:.3,LAref:6,rootMax:[1.6,3.6,7.5],nodeCost:.26,res:.3,cap:2,rs:.35},
+ ficus:{name:'小葉榕',kind:'bonsai',rb:1.6,Ik:.5,Ihigh:1.1,Pmax:.0125,r0:.0015,rn:.12,Tmin:9,Tlo:21,Thi:31,Tmax:38,Tcold:7,wp:.15,fc:.6,drain:.3,wetLim:.5,use:.85,LAref:14,rootMax:[3.4,3.4,3.4],nodeCost:.16,res:.3,cap:3,rs:.3}
+};
+const clamp=(x,a,b)=>x<a?a:x>b?b:x;
+const smooth=x=>{x=clamp(x,0,1);return x*x*(3-2*x)};
+const rnd=(a,b)=>a+Math.random()*(b-a);
+const pct=v=>Math.round(v*100);
+function newWeather(prev,doy){
+ const sea=Math.sin(2*Math.PI*(doy-110)/365);
+ const rain=Math.random()<.24+.06*sea;
+ const r0=Math.floor(rnd(5,17));
+ return {rain,r0,r1:r0+Math.floor(rnd(2,7)),cloud:rain?.3:rnd(.72,1),dT:clamp(.7*(prev?prev.dT:0)+rnd(-2,2)-(rain?.8:0),-6,5)};
+}
+function envFor(W,spot){
+ const doy=(START_DOY+W.day)%365,hour=W.h,wx=W.wx;
+ const Tm=23+7*Math.sin(2*Math.PI*(doy-110)/365)+wx.dT;
+ const Tout=Tm+4*Math.sin(2*Math.PI*(hour-9)/24);
+ const sun0=Math.max(0,Math.sin(Math.PI*(hour-6)/12));
+ const raining=wx.rain&&hour>=wx.r0&&hour<wx.r1;
+ const sun=sun0*(raining?.25:wx.cloud);
+ const Tin=clamp(.5*Tout+11,17,29);
+ let par,T,rain=false;
+ if(spot==='win'){par=.85*sun;T=Tin+3*sun}
+ else if(spot==='room'){par=.22*sun+((hour>=18&&hour<23)?.03:0);T=Tin}
+ else if(spot==='bon'){par=.95*sun;T=Tin+2*sun}
+ else{par=1.25*sun;T=Tout+(raining?0:3*sun);rain=raining}
+ return {par,T,rain,Tout,raining,sun};
+}
+function tempF(S,T){
+ if(T<=S.Tmin||T>=S.Tmax)return 0;
+ if(T<S.Tlo)return(T-S.Tmin)/(S.Tlo-S.Tmin);
+ if(T<=S.Thi)return 1;
+ return(S.Tmax-T)/(S.Tmax-S.Thi);
+}
+function plog(W,p,msg){p.log.push([W.day*24+W.h,msg]);if(p.log.length>80)p.log.shift();}
+function flag(W,p,k,on,off,msg){if(!p.f[k]&&on){p.f[k]=1;plog(W,p,msg)}else if(p.f[k]&&off)p.f[k]=0}
+function mkNode(par,a,L,T,lf,th){return{par,a,L,T,lf,th,w:null,sc:0,y:0,dead:0}}
+function newPlant(W,sp,spot,o){
+ o=o||{};
+ const p={id:W.nextId++,sp,spot,pot:o.pot!=null?o.pot:1,w:o.w!=null?o.w:.5,N:.5,root:o.root||1.2,C:.5,shootC:0,rot:0,burn:0,cold:0,scar:0,hot:0,turgor:1,plump:1,etio:0,lean:0,accl:SPOT[spot].accl,dli:0,starve:0,shock:0,goodDays:0,dead:false,log:[],hist:[],f:{},LA:0,chlor:1,fill:0,hp:1,yf:0,net:0,stem:0,wood:0};
+ if(sp==='pothos'){
+  const mk=n=>({s:.85,y:0,dead:0,bare:false});
+  p.stems=[{par:null,side:-1,nodes:[mk(),mk(),mk(),mk()]},{par:null,side:1,nodes:[mk(),mk(),mk()]}];
+ }else if(sp==='echeveria'){
+  p.leaves=[];for(let i=0;i<9;i++)p.leaves.push({s:.8,y:0,dead:0});
+  p.stem=.3;
+ }else{
+  p.root=o.root||1.8;
+  p.tree=[mkNode(-1,0,26,26,0,3.4),mkNode(0,-.14,15,20,.8,2.6),mkNode(1,.22,11,18,.8,2),mkNode(0,.95,9,12,.8,1.8),mkNode(2,-.3,7,14,.7,1.5),mkNode(3,.5,6,10,.7,1.4)];
+ }
+ p.LA=calcLA(p);
+ plog(W,p,'入手：'+SP[sp].name+'，放在'+SPOT[spot].n);
+ return p;
+}
+function calcLA(p){
+ let a=0;
+ if(p.sp==='pothos'){for(const st of p.stems)for(const n of st.nodes)if(!n.bare)a+=n.s*(1-n.y)}
+ else if(p.sp==='echeveria'){for(const l of p.leaves)a+=l.s*(1-l.y)*(.5+.5*p.plump)*.9}
+ else{for(const n of p.tree)if(n.par>=0)a+=n.lf*(1-n.y)*2.2}
+ return a;
+}
+function leafList(p){
+ const out=[];
+ if(p.sp==='pothos'){for(const st of p.stems)for(const n of st.nodes)if(!n.bare)out.push(n)}
+ else if(p.sp==='echeveria'){for(const l of p.leaves)out.push(l)}
+ else{for(const n of p.tree)if(n.par>=0&&n.lf>.05)out.push(n)}
+ return out;
+}
+function layoutTree(p){
+ const T=p.tree,n=T.length,ang=new Float32Array(n),x0=new Float32Array(n),y0=new Float32Array(n),x1=new Float32Array(n),y1=new Float32Array(n);
+ for(let i=0;i<n;i++){
+  const q=T[i],pa=q.par;
+  ang[i]=(pa<0?-Math.PI/2:ang[pa])+q.a;
+  x0[i]=pa<0?0:x1[pa];y0[i]=pa<0?0:y1[pa];
+  x1[i]=x0[i]+Math.cos(ang[i])*q.L;y1[i]=y0[i]+Math.sin(ang[i])*q.L;
+ }
+ return{ang,x0,y0,x1,y1};
+}
+function treeKids(T){const k=new Array(T.length).fill(0);for(const n of T)if(n.par>=0)k[n.par]++;return k}
+function cutTree(W,p,c){
+ const T=p.tree;if(c<=0||c>=T.length)return false;
+ const rm=new Set([c]);for(let i=c+1;i<T.length;i++)if(rm.has(T[i].par))rm.add(i);
+ const q=T[c].par,map=[],out=[];
+ T.forEach((n,i)=>{if(!rm.has(i)){map[i]=out.length;out.push(n)}});
+ out.forEach(n=>{if(n.par>=0)n.par=map[n.par]});
+ const before=p.LA;p.tree=out;const nq=map[q];
+ const kids=treeKids(out);
+ if(kids[nq]<3){
+  const s=Math.random()<.5?1:-1;
+  out.push(mkNode(nq,s*rnd(.55,.9),1.5,rnd(9,13),0,1.2));
+  out.push(mkNode(nq,-s*rnd(.55,.9),1.5,rnd(9,13),0,1.2));
+ }
+ p.LA=calcLA(p);
+ if(before>0&&(before-p.LA)/before>.4)p.shock=Math.max(p.shock,48);
+ plog(W,p,'修剪：剪掉 '+rm.size+' 段枝；剪口下方的芽被釋放（分枝變多）');
+ return true;
+}
+function growTree(p){
+ const T=p.tree;if(T.length>=170)return;
+ const g=T.filter(n=>n.L<n.T-.01);
+ if(g.length){const n=g[Math.floor(Math.random()*g.length)];n.L=Math.min(n.T,n.L+n.T*.38);return}
+ const lay=layoutTree(p),kids=treeKids(T);
+ const tips=[];for(let i=0;i<T.length;i++)if(!kids[i])tips.push(i);
+ if(!tips.length)return;
+ const ws=tips.map(i=>Math.pow(1+Math.max(0,-lay.y1[i])/60,3));
+ let r=Math.random()*ws.reduce((a,b)=>a+b,0),pick=tips[0];
+ for(let k=0;k<tips.length;k++){r-=ws[k];if(r<=0){pick=tips[k];break}}
+ const up=-Math.PI/2-lay.ang[pick];
+ const bias=SPOT[p.spot].dir*.18*(.3+p.etio);
+ const a=clamp(up*.3+rnd(-.35,.35)+bias,-1,1);
+ T.push(mkNode(pick,a,2,rnd(12,20)*(1+.9*p.etio),0,1.4));
+ if(Math.random()<.22)T.push(mkNode(pick,(Math.random()<.5?-1:1)*rnd(.6,1),2,rnd(9,14)*(1+.7*p.etio),0,1.2));
+}
+function growPothos(p){
+ let tot=0;for(const st of p.stems)tot+=st.nodes.length;
+ if(tot>=100)return;
+ const cand=p.stems.filter(s=>s.nodes.length<18);
+ if(!cand.length||(p.stems.length<5&&Math.random()<.04)){
+  p.stems.push({par:null,side:Math.random()<.5?-1:1,nodes:[{s:.1,y:0,dead:0,bare:false}]});return;
+ }
+ const ws=cand.map(s=>s.nodes.length+2);
+ let r=Math.random()*ws.reduce((a,b)=>a+b,0),st=cand[0];
+ for(let k=0;k<cand.length;k++){r-=ws[k];if(r<=0){st=cand[k];break}}
+ st.nodes.push({s:.1,y:0,dead:0,bare:false});
+}
+function growSucc(p){
+ p.leaves.push({s:.1,y:0,dead:0});
+ p.stem+=.12+3.4*p.etio*p.etio;
+ if(p.leaves.length>22)p.leaves[0].y=1;
+}
+function shedLeaf(W,p){
+ if(p.sp==='pothos'){outer:for(const st of p.stems)for(const n of st.nodes)if(!n.bare){n.bare=true;break outer}}
+ else if(p.sp==='echeveria'){if(p.leaves.length>3)p.leaves.shift()}
+ else{const c=p.tree.filter(n=>n.par>=0&&n.lf>.4);if(c.length){const n=c[Math.floor(Math.random()*c.length)];n.lf=.02;n.y=0}}
+ plog(W,p,'碳不足：葉片脫落（光太弱、根壞或剪太重）');
+}
+function stepPlant(W,p){
+ if(p.dead)return;
+ const S=SP[p.sp],pot=POT[p.pot],e=envFor(W,p.spot);
+ p.LA=calcLA(p);
+ const fill=clamp(p.root/S.rootMax[p.pot],0,1.3);p.fill=fill;
+ if(e.rain)p.w=Math.min(1,p.w+.03);
+ const lfrac=Math.min(1,p.LA/S.LAref);
+ const dem=(e.par*.0042+.0012+.0004*Math.max(0,e.T-12))*S.use*(.35+.65*lfrac)*Math.pow(pot.v,-.5)*(e.raining?.5:1)*.7;
+ p.w=Math.max(S.wp*.55,p.w-dem);
+ if(p.w>S.fc){const ex=(p.w-S.fc)*S.drain;p.w-=ex;p.N=Math.max(0,p.N-ex*.25)}
+ const a=clamp((p.w-S.wp)/(S.fc-S.wp),0,1.3);
+ let waterF;
+ if(S.kind==='succ'){
+  if(a>.25)p.plump=Math.min(1,p.plump+.004);else p.plump=Math.max(0,p.plump-.0018*(1+.05*Math.max(0,e.T-20)));
+  waterF=.2+.8*smooth(p.plump/.5);p.turgor=p.plump;
+ }else{waterF=smooth(a/.35);p.turgor+=(waterF-p.turgor)*(waterF<p.turgor?.12:.06)}
+ // 缺氧爛根
+ const wet=clamp((p.w-S.wetLim)/(1-S.wetLim),0,1);
+ if(wet>0)p.rot=Math.min(1,p.rot+.006*wet);else p.rot=Math.max(0,p.rot-.0003);
+ p.root=Math.max(0,p.root-p.root*(p.rot*.002+p.burn*.002));
+ // 肥傷
+ if(p.N>1)p.burn=Math.min(1,p.burn+.008*(p.N-1));else if(p.N<.9)p.burn=Math.max(0,p.burn-.0006);
+ // 光適應與曬傷
+ if(e.par>.02){if(e.par>p.accl)p.accl+=(e.par-p.accl)*.004;else p.accl=Math.max(.12,p.accl-.0006)}
+ const over=e.par-p.accl-.38;
+ if(over>0&&e.T>27){p.scar=Math.min(1,p.scar+over*.09*(e.T-25)/8);p.hot=10}else{p.scar=Math.max(0,p.scar-.0004);p.hot=Math.max(0,p.hot-1)}
+ // 低溫
+ if(e.T<S.Tcold)p.cold=Math.min(1,p.cold+(S.Tcold-e.T)*.004);else p.cold=Math.max(0,p.cold-.0005);
+ // 葉綠素（缺氮、爛根、凍傷讓葉色變淡）
+ const chT=1-.55*clamp((.18-p.N)/.18,0,1)-.5*p.rot-.6*p.cold;
+ p.chlor+=(clamp(chT,.2,1)-p.chlor)*.01;
+ // 光合與呼吸
+ const lr=1-Math.exp(-e.par/S.Ik);
+ const inh=e.par>S.Ihigh?Math.max(.45,1-(e.par-S.Ihigh)*.9):1;
+ const rootF=clamp(p.root/(S.rn*p.LA+.3),0,1)*(1-p.rot)*(1-.8*p.burn)*(fill>.9?clamp(1-(fill-.9)*S.rb,.5,1):1);
+ const nutF=.45+.55*smooth(p.N/.45);
+ const L0=S.LAref*2.2,LAe=L0*(1-Math.exp(-p.LA/L0));
+ const P=S.Pmax*LAe*lr*inh*tempF(S,e.T)*waterF*rootF*nutF*p.chlor*(1-.4*p.scar)*(p.shock>0?.4:1);
+ const R=S.r0*(p.LA*.4+p.root*.6+p.wood*.25)*Math.pow(1.7,(e.T-20)/10);
+ if(p.shock>0)p.shock--;
+ p.C=clamp(p.C+P-R,-1.6,S.cap);
+ p.net=p.net*.96+(P-R)*.04;
+ if(p.C>S.res){
+  const g=(p.C-S.res)*.1;p.C-=g;
+  const rs=fill<.95?S.rs:.05;
+  p.root=Math.min(S.rootMax[p.pot]*1.02,p.root+g*rs*2.2);
+  p.shootC+=g*(1-rs)*(1-clamp((fill-.9)*4,0,.6));
+  p.N=Math.max(0,p.N-g*.01);
+  p.starve=Math.max(0,p.starve-.02);
+ }else if(p.C<0){
+  p.starve+=-p.C*.02;p.root=Math.max(0,p.root-.0004*p.root);
+  if(p.starve>1){p.starve=0;p.C+=.4;shedLeaf(W,p)}
+ }
+ p.N=Math.max(0,p.N-p.LA*.000012-p.N*.0002);
+ while(p.shootC>=S.nodeCost){
+  p.shootC-=S.nodeCost;
+  if(S.kind==='foliage')growPothos(p);else if(S.kind==='succ')growSucc(p);else growTree(p);
+ }
+ // 葉片成熟與黃化
+ const tf=tempF(S,e.T),gr=tf*waterF*(p.C>0?1:.3);
+ if(S.kind==='foliage'){for(const st of p.stems)for(const n of st.nodes)if(n.s<1)n.s=Math.min(1,n.s+.012*gr)}
+ else if(S.kind==='succ'){for(const l of p.leaves)if(l.s<1)l.s=Math.min(1,l.s+.01*gr)}
+ else{for(const n of p.tree)if(n.par>=0&&n.lf<1)n.lf=Math.min(1,n.lf+(n.lf<.05?.003:.01)*gr)}
+ const yt=clamp(p.rot*1.3+p.cold*1.1+clamp((.15-p.N)/.15,0,1)*.65,0,1.2);
+ const L=leafList(p);let ys=0;
+ L.forEach((n,i)=>{
+  const wgt=1-.55*(i/Math.max(1,L.length));
+  n.y+=(Math.min(1,yt*wgt)-n.y)*.004;ys+=n.y;
+  if(n.y>.97){n.dead++;if(n.dead>60){
+   if(S.kind==='foliage')n.bare=true;
+   else if(S.kind==='succ'){const k=p.leaves.indexOf(n);if(k>=0)p.leaves.splice(k,1)}
+   else{n.lf=.02;n.y=0;n.dead=0}
+  }}
+ });
+ p.yf=L.length?ys/L.length:0;
+ // 光量積分→徒長、向光彎曲
+ if(W.h>=5&&W.h<20)p.dli+=e.par;
+ if(W.h===20){p.etio+=(clamp(1-p.dli/(S.Ik*7),0,1)-p.etio)*.2;p.dli=0}
+ if(S.kind!=='bonsai'){const tg=SPOT[p.spot].dir*(.3+.7*p.etio);p.lean+=(tg-p.lean)*.012}
+ p.hp=clamp(1-.6*p.rot-.5*p.burn-.6*p.cold-.35*p.scar-.6*(1-p.turgor)-.4*p.yf-.25*Math.max(0,p.etio-.3),0,1);
+ // 日誌（因果回溯用）
+ flag(W,p,'dry',p.w<S.wp+.05,p.w>S.fc*.8,'土壤乾到 '+pct(p.w)+'%（萎凋點約 '+pct(S.wp)+'%）');
+ flag(W,p,'wilt',p.turgor<.55,p.turgor>.8,S.kind==='succ'?'葉片失水皺縮（葉內儲水用完）':'葉片開始下垂（缺水，氣孔關閉、光合下降）');
+ flag(W,p,'rot1',p.rot>.15,p.rot<.05,'爛根指數 > 0.15：土壤太久沒乾，根缺氧');
+ flag(W,p,'rot2',p.rot>.45,p.rot<.2,'爛根嚴重：根系正在死亡（換盆修根才救得回來）');
+ flag(W,p,'burn',p.burn>.12,p.burn<.03,'肥傷：土壤養分過高燒根（用大水沖洗）');
+ flag(W,p,'scar',p.scar>.15,p.scar<.05,'曬傷：光強遠高於已適應的光量（要慢慢移）');
+ flag(W,p,'cold',p.cold>.12,p.cold<.03,'低溫傷害：低於耐寒溫度 '+S.Tcold+'°C');
+ flag(W,p,'etio',p.etio>.5,p.etio<.25,'徒長：每日累積光量不足，節間拉長');
+ flag(W,p,'rb',fill>.92,fill<.75,'根系塞滿盆子（根包盆），生長受限，可換大一號盆');
+ flag(W,p,'lowN',p.N<.12,p.N>.3,'養分偏低：老葉開始變黃');
+ if(p.cold>=1||p.root<.02){p.dead=true;plog(W,p,p.cold>=1?'凍死':'根系全毀，枯死');W.out.push({k:'dead',id:p.id})}
+}
+function dailyUpdate(W){
+ for(const p of W.plants){
+  if(p.dead)continue;
+  p.goodDays=p.hp>.7?p.goodDays+1:0;
+  if(p.sp==='ficus'){
+   const T=p.tree,n=T.length,sub=new Float32Array(n);let wood=0;
+   for(let i=n-1;i>=0;i--){sub[i]+=T[i].par>=0?T[i].lf:0;if(T[i].par>=0)sub[T[i].par]+=sub[i];wood+=T[i].th*T[i].L/150}
+   p.wood=wood;
+   for(let i=0;i<n;i++){const tg=1.2+1.15*Math.sqrt(sub[i]);if(tg>T[i].th)T[i].th+=(tg-T[i].th)*.06}
+  }
+  if(!W.unlocked&&p.sp!=='ficus'&&p.goodDays>=10)unlockBonsai(W);
+ }
+}
+function unlockBonsai(W){
+ if(W.unlocked)return;
+ W.unlocked=true;
+ W.plants.push(newPlant(W,'ficus','bon',{pot:0,w:.5}));
+ W.out.push({k:'unlock'});
+}
+function tickHour(W){
+ for(const p of W.plants){
+  stepPlant(W,p);
+  p.hist.push([+p.w.toFixed(3),+p.C.toFixed(3),+p.rot.toFixed(3),+p.net.toFixed(4)]);
+  if(p.hist.length>240)p.hist.shift();
+ }
+ W.h++;
+ if(W.h>=24){W.h=0;W.day++;W.wx=newWeather(W.wx,(START_DOY+W.day)%365);dailyUpdate(W)}
+}
+function newWorld(){
+ const W={day:0,h:8,wx:newWeather(null,START_DOY),plants:[],nextId:1,unlocked:false,out:[]};
+ W.plants.push(newPlant(W,'pothos','win',{w:.42}));
+ W.plants.push(newPlant(W,'echeveria','room',{w:.22,pot:0,root:.9}));
+ return W;
+}
+function bonsaiScore(p){
+ const T=p.tree,lay=layoutTree(p),kids=treeKids(T);
+ let H=40,tips=0,inside=0,L=0,R=0,thTip=0,tT=0;
+ for(let i=0;i<T.length;i++)H=Math.max(H,-lay.y1[i]);
+ for(let i=0;i<T.length;i++){
+  if(T[i].par>=0&&T[i].lf>.2){if(lay.x1[i]>0)R+=T[i].lf;else L+=T[i].lf}
+  if(!kids[i]){
+   tips++;thTip+=T[i].th;tT+=T[i].T;
+   const y=-lay.y1[i],hw=.46*H*(1-(y/H)*.9)+10;
+   if(y>=.15*H&&Math.abs(lay.x1[i])<=hw)inside++;
+  }
+ }
+ const fit=tips?inside/tips:0,dens=clamp(tips/12,0,1),bal=1-Math.abs(L-R)/(L+R+.001);
+ const fine=clamp(1-((tips?tT/tips:20)-9)/12,0,1),taper=clamp((T[0].th/(tips?thTip/tips:1)-1.5)/2,0,1);
+ let wired=0,sc=0;for(const n of T){if(n.w)wired++;if(n.sc)sc++}
+ const total=100*(.3*fit+.25*dens+.2*bal+.15*fine+.1*taper)*(1-.35*clamp(sc/4,0,1));
+ return{total,fit,dens,bal,fine,taper,tips,H};
+}
+//</SIM>
+
+// ---------- THEME ----------
+const THEME={paper:'#f7eedd',ink:'#4b3a30',ink2:'#7a6556',accent:'#e58a5b',leaf:'#6fae7c',water:'#6aa9d6',warn:'#d9654b',card:'rgba(255,250,240,.94)',line:'#e4d3b8',shadow:'rgba(120,90,60,.25)',btn:'#fff6e6',btn2:'#ffe3cf'};
+for(const k in THEME)document.documentElement.style.setProperty('--'+k,THEME[k]);
+const C={wall:'#f0e2c6',wallN:'#5a5470',wood:'#b98a5e',woodD:'#94693f',woodL:'#d3a878',terra:'#d98b64',cream:'#efe3cf',teal:'#5b8f8a',soilDry:'#cdb38a',soilWet:'#5b3f2d',
+ leaf:'#5fae6e',leafD:'#3f8a56',leafY:'#d8c24a',leafDead:'#8a6a3c',var:'#e8d46a',succ:'#8fc3a5',succD:'#6aa58c',blush:'#e98aa0',stem:'#a8b28a',
+ bark:'#8a6a4e',barkL:'#a98863',ficus:'#4f9a5b',copper:'#c9784a',face:'#4b3a30',cheek:'#f2a0a0',water:'#7ab8e0',rail:'#8a7a6a',scar:'#9a6a3a'};
+const SKY=[[0,'#1b2545','#2d3b66'],[5,'#2d3b66','#e9a079'],[7,'#8fc7ea','#f5dcb0'],[12,'#7ec3ee','#d7ecf7'],[17,'#8fc0e6','#f7d3a2'],[19,'#4a4a7a','#e58a6a'],[21,'#1f2a4d','#34436e'],[24,'#1b2545','#2d3b66']];
+
+// ---------- 工具 ----------
+const $=id=>document.getElementById(id);
+const hex=h=>[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];
+function mix(a,b,t){const x=hex(a),y=hex(b);t=clamp(t,0,1);return'rgb('+Math.round(x[0]+(y[0]-x[0])*t)+','+Math.round(x[1]+(y[1]-x[1])*t)+','+Math.round(x[2]+(y[2]-x[2])*t)+')'}
+function mixRGB(a,b,t){const f=s=>s[0]==='#'?hex(s):s.match(/\d+/g).map(Number);const x=f(a),y=f(b);t=clamp(t,0,1);return'rgb('+Math.round(x[0]+(y[0]-x[0])*t)+','+Math.round(x[1]+(y[1]-x[1])*t)+','+Math.round(x[2]+(y[2]-x[2])*t)+')'}
+function skyAt(h){for(let i=0;i<SKY.length-1;i++){const a=SKY[i],b=SKY[i+1];if(h>=a[0]&&h<=b[0]){const t=(h-a[0])/(b[0]-a[0]);return[mix(a[1],b[1],t),mix(a[2],b[2],t)]}}return[SKY[0][1],SKY[0][2]]}
+const hash=(a,b)=>{let h=(a*374761393+b*668265263)|0;h=(h^(h>>>13))*1274126177|0;return((h^(h>>>16))>>>0)/4294967295};
+function rr(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath()}
+const spotKeys=()=>W.unlocked?['win','room','bon','balc']:['win','room','balc'];
+const plantById=id=>W.plants.find(p=>p.id===id);
+const plantAt=sp=>W.plants.find(p=>p.spot===sp);
+
+// ---------- 狀態 ----------
+let W=null;
+const KEY='bonsai-shop-v1';
+const ui={sel:null,tool:'hand',tab:'o',speed:1,muted:false};
+try{ui.muted=localStorage.getItem('bonsai-muted')==='1'}catch(e){}
+document.getElementById('mute')&&ui.muted&&(document.getElementById('mute').textContent='🔇');
+const cam={cx:360,cy:640,z:1};
+let started=false,accFrac=0,hits=[],fx=[],tClock=0;
+function save(){try{localStorage.setItem(KEY,JSON.stringify(W,(k,v)=>k==='out'?undefined:v))}catch(e){}}
+function load(){try{const s=localStorage.getItem(KEY);if(!s)return null;const w=JSON.parse(s);if(!w||!w.plants)return null;w.out=[];return w}catch(e){return null}}
+
+// ---------- 畫布骨架 ----------
+const cv=$('cv'),ctx=cv.getContext('2d');
+let LW=720,LH=1280,scale=1,dpr=1;
+function fit(){
+ dpr=Math.min(devicePixelRatio||1,2);
+ const w=innerWidth,h=innerHeight;
+ if(w<=h){LW=720;LH=720*h/w}else{LH=720;LW=720*w/h}
+ scale=w/LW;
+ cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);
+}
+new ResizeObserver(fit).observe(document.body);addEventListener('resize',fit);fit();
+function metrics(){
+ const sp=spotKeys(),n=sp.length,baseY=LH*(LW>LH?.66:.68);
+ return{sp,n,baseY,S:Math.min(LW/n/150,(baseY-120)/290),slotW:LW/n};
+}
+const slotX=(i,n)=>LW*(i+.5)/n;
+function visRect(){
+ const s=$('sheet'),tr=$('tray').getBoundingClientRect();
+ let l=0,r=LW,t=56/scale,b=tr.top/scale;
+ if(s.classList.contains('open')){const q=s.getBoundingClientRect();if(q.width<innerWidth*.7)r=Math.min(r,q.left/scale);else b=Math.min(b,q.top/scale)}
+ return{l,r,t,b,w:r-l};
+}
+function camTarget(){
+ const m=metrics(),p=ui.sel!=null?plantById(ui.sel):null;
+ if(!p)return{cx:LW/2,cy:LH/2,z:1};
+ const i=m.sp.indexOf(p.spot),px=slotX(i,m.n),v=visRect();
+ const z=clamp(Math.min(v.w/(m.slotW*1.15),(v.b-v.t-30)/(300*m.S)),1,1.7);
+ return{cx:px-((v.l+v.r)/2-LW/2)/z,cy:m.baseY-(v.b-20-LH/2)/z,z};
+}
+
+// ---------- 音效（最小版） ----------
+const SND={ctx:null,noise:null,gain:null,init(){try{if(!this.ctx)this.ctx=new(window.AudioContext||window.webkitAudioContext)();if(this.ctx.state==='suspended')this.ctx.resume()}catch(e){}},
+ tone(f,d,v){if(ui.muted||!this.ctx)return;try{const o=this.ctx.createOscillator(),g=this.ctx.createGain();o.type='sine';o.frequency.value=f;g.gain.value=v||.06;g.gain.exponentialRampToValueAtTime(.0001,this.ctx.currentTime+d);o.connect(g);g.connect(this.ctx.destination);o.start();o.stop(this.ctx.currentTime+d)}catch(e){}},
+ pour(on){try{if(!this.ctx)return;if(on&&!ui.muted){if(!this.noise){const n=this.ctx.sampleRate*2,b=this.ctx.createBuffer(1,n,this.ctx.sampleRate),d=b.getChannelData(0);for(let i=0;i<n;i++)d[i]=Math.random()*2-1;const s=this.ctx.createBufferSource();s.buffer=b;s.loop=true;const f=this.ctx.createBiquadFilter();f.type='bandpass';f.frequency.value=1400;const g=this.ctx.createGain();g.gain.value=0;s.connect(f);f.connect(g);g.connect(this.ctx.destination);s.start();this.noise=s;this.gain=g}this.gain.gain.value=.05}else if(this.gain)this.gain.gain.value=0}catch(e){}}};
+
+// ---------- 提示 ----------
+let toastT=0;
+function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),2600)}
+function drainOut(){
+ while(W.out.length){
+  const o=W.out.shift();
+  if(o.k==='unlock'){toast('鄰居送了一株小葉榕苗，放在新的「盆景台」。蟠紮工具解鎖。');$('wireBtn').style.display='';SND.tone(660,.3,.08);SND.tone(880,.4,.06)}
+  if(o.k==='dead'){toast('有一盆枯死了。點開看日誌，找出是哪個變數出的事。')}
+ }
+}
+
+// ---------- 繪製：房間 ----------
+function drawRoom(m,hf,dl,raining){
+ const X0=-LW,X1=LW*2,Y0=-LH,Y1=LH*2,sw=m.slotW,S=m.S,by=m.baseY,bx=LW-sw;
+ ctx.fillStyle=mix(C.wallN,C.wall,dl);ctx.fillRect(X0,Y0,bx-X0,Y1-Y0);
+ // 牆面條紋
+ ctx.fillStyle='rgba(255,255,255,.07)';for(let x=X0;x<bx;x+=64)ctx.fillRect(x,Y0,28,Y1-Y0);
+ // 陽台天空
+ const[skyT,skyB]=skyAt(hf);
+ let g=ctx.createLinearGradient(0,Y0,0,by);g.addColorStop(0,skyT);g.addColorStop(1,skyB);
+ ctx.fillStyle=g;ctx.fillRect(bx,Y0,X1-bx,by-Y0);
+ // 遠方城市
+ ctx.fillStyle=mix(skyB,'#7a6a8a',.45);
+ for(let i=0;i<7;i++){const h=60+hash(i,3)*150,w=34+hash(i,5)*30;ctx.fillRect(bx+i*(sw/5.5)-10,by-30*S-h,w,h+30*S)}
+ // 陽台欄杆
+ ctx.strokeStyle=C.rail;ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(bx,by-58*S);ctx.lineTo(X1,by-58*S);ctx.stroke();
+ ctx.lineWidth=3;for(let x=bx+10;x<X1;x+=26){ctx.beginPath();ctx.moveTo(x,by-58*S);ctx.lineTo(x,by);ctx.stroke()}
+ // 窗
+ const fx0=sw*.08,fw=sw*.84,fy0=Math.max(50,by-470*S),fh=by-30-fy0;
+ g=ctx.createLinearGradient(0,fy0,0,fy0+fh);g.addColorStop(0,skyT);g.addColorStop(1,skyB);
+ ctx.fillStyle=g;ctx.fillRect(fx0,fy0,fw,fh);
+ ctx.save();ctx.beginPath();ctx.rect(fx0,fy0,fw,fh);ctx.clip();
+ const isDay=hf>=6&&hf<=18;
+ if(isDay){const t=(hf-6)/12,sx=fx0+fw*t,sy=fy0+fh*(.78-.62*Math.sin(Math.PI*t));ctx.fillStyle='rgba(255,244,190,.35)';ctx.beginPath();ctx.arc(sx,sy,46,0,6.29);ctx.fill();ctx.fillStyle='#fff3b8';ctx.beginPath();ctx.arc(sx,sy,26,0,6.29);ctx.fill()}
+ else{const t=((hf+6)%24)/12,sx=fx0+fw*t,sy=fy0+fh*(.78-.6*Math.sin(Math.PI*t));ctx.fillStyle='#f4f0d8';ctx.beginPath();ctx.arc(sx,sy,18,0,6.29);ctx.fill();ctx.fillStyle='rgba(255,255,255,.7)';for(let i=0;i<9;i++)ctx.fillRect(fx0+hash(i,1)*fw,fy0+hash(i,2)*fh*.6,2.4,2.4)}
+ const cl=raining?'rgba(120,130,150,.9)':'rgba(255,255,255,.85)';ctx.fillStyle=cl;
+ for(let i=0;i<3;i++){const cx=fx0+((hash(i,9)*fw+tClock*(8+i*3))%(fw+120))-60,cy=fy0+30+i*fh*.18;ctx.beginPath();ctx.ellipse(cx,cy,50,16,0,0,6.29);ctx.ellipse(cx+26,cy-8,34,14,0,0,6.29);ctx.fill()}
+ ctx.restore();
+ ctx.strokeStyle=C.woodL;ctx.lineWidth=9;ctx.strokeRect(fx0,fy0,fw,fh);ctx.lineWidth=6;ctx.beginPath();ctx.moveTo(fx0+fw/2,fy0);ctx.lineTo(fx0+fw/2,fy0+fh);ctx.moveTo(fx0,fy0+fh*.5);ctx.lineTo(fx0+fw,fy0+fh*.5);ctx.stroke();
+ ctx.fillStyle=C.woodL;ctx.fillRect(fx0-8,fy0+fh,fw+16,12);
+ // 光束
+ if(dl>.3&&!raining){g=ctx.createLinearGradient(fx0+fw,0,sw*2.1,0);g.addColorStop(0,'rgba(255,238,180,'+(.2*dl)+')');g.addColorStop(1,'rgba(255,238,180,0)');ctx.fillStyle=g;ctx.beginPath();ctx.moveTo(fx0+fw,fy0+fh*.15);ctx.lineTo(fx0+fw,fy0+fh);ctx.lineTo(sw*2.1,by);ctx.lineTo(sw*1.5,by-fh*.55);ctx.closePath();ctx.fill()}
+ // 室內牆上掛畫
+ if(m.n>1){const px=slotX(1,m.n);ctx.fillStyle=C.woodL;rr(ctx,px-44,by-400*S,88,66,6);ctx.fill();ctx.fillStyle=mixRGB(C.wall,'#c9a77a',.4);ctx.fillRect(px-37,by-393*S,74,52);ctx.fillStyle=C.leaf;ctx.beginPath();ctx.arc(px,by-367*S,10,0,6.29);ctx.fill()}
+ // 掛鐘（跟著遊戲時間走）
+ {const cx=LW-sw*1.5-(m.n>3?0:sw*.5),cy=by-380*S,R=34;
+  ctx.fillStyle=C.woodL;ctx.beginPath();ctx.arc(cx,cy,R+6,0,6.29);ctx.fill();
+  ctx.fillStyle='#fff8ea';ctx.beginPath();ctx.arc(cx,cy,R,0,6.29);ctx.fill();
+  ctx.strokeStyle=THEME.ink2;ctx.lineWidth=2;for(let i=0;i<12;i++){const a=i*Math.PI/6;ctx.beginPath();ctx.moveTo(cx+Math.sin(a)*(R-7),cy-Math.cos(a)*(R-7));ctx.lineTo(cx+Math.sin(a)*(R-2),cy-Math.cos(a)*(R-2));ctx.stroke()}
+  ctx.lineCap='round';ctx.strokeStyle=THEME.ink;ctx.lineWidth=4;const ah=((hf%12)/12)*6.2832,am=(hf%1)*6.2832;
+  ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.sin(ah)*R*.5,cy-Math.cos(ah)*R*.5);ctx.stroke();
+  ctx.lineWidth=2.6;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.sin(am)*R*.78,cy-Math.cos(am)*R*.78);ctx.stroke();
+  ctx.fillStyle=THEME.ink;ctx.beginPath();ctx.arc(cx,cy,3,0,6.29);ctx.fill()}
+ // 下雨
+ if(raining){ctx.strokeStyle='rgba(180,210,240,.7)';ctx.lineWidth=2;for(let i=0;i<46;i++){const x=(bx+hash(i,4)*(X1-bx)),y=((hash(i,6)*900+tClock*520)%(by-Y0+40))+Y0;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-4,y+18);ctx.stroke()}
+  for(let i=0;i<14;i++){const x=fx0+hash(i,8)*fw,y=fy0+((hash(i,7)*400+tClock*380)%fh);ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-3,y+14);ctx.stroke()}}
+ // 層板
+ ctx.fillStyle=C.wood;ctx.fillRect(X0,by,X1-X0,22*S);ctx.fillStyle=C.woodD;ctx.fillRect(X0,by+22*S,X1-X0,6*S);
+ ctx.fillStyle=C.woodL;ctx.fillRect(X0,by,X1-X0,4*S);
+ ctx.font='600 '+Math.round(17)+'px ui-rounded,"Noto Sans TC",sans-serif';ctx.textAlign='center';ctx.fillStyle=THEME.ink2;
+ m.sp.forEach((k,i)=>ctx.fillText(SPOT[k].n,slotX(i,m.n),by+22*S+26));
+}
+
+// ---------- 繪製：臉 ----------
+function mood(p){
+ if(p.dead)return'dead';
+ if(p.cold>.12)return'cold';
+ if(p.hot>0&&p.scar>.12)return'hot';
+ if(p.rot>.18||p.w>.93||p.burn>.15)return'sick';
+ if(p.turgor<.62)return'thirsty';
+ if(p.hp<.6)return'meh';
+ return'happy';
+}
+function drawFace(c,x,y,s,md,asleep){
+ c.save();c.translate(x,y);c.lineCap='round';c.lineJoin='round';
+ const ex=15*s,ey=-3*s,r=3.5*s;
+ const ck={happy:C.cheek,thirsty:C.cheek,meh:C.cheek,sick:'#a9c98a',hot:'#ef7a62',cold:'#9cc3e6',dead:'#bbb'}[md]||C.cheek;
+ c.fillStyle=ck;c.globalAlpha=.55;c.beginPath();c.ellipse(-ex-6*s,8*s,5.5*s,3.4*s,0,0,6.29);c.ellipse(ex+6*s,8*s,5.5*s,3.4*s,0,0,6.29);c.fill();c.globalAlpha=1;
+ c.strokeStyle=C.face;c.fillStyle=C.face;c.lineWidth=2.3*s;
+ const blink=Math.sin(tClock*1.3)>.985;
+ if(md==='dead'){for(const sx of[-ex,ex]){c.beginPath();c.moveTo(sx-r,ey-r);c.lineTo(sx+r,ey+r);c.moveTo(sx+r,ey-r);c.lineTo(sx-r,ey+r);c.stroke()}c.beginPath();c.moveTo(-5*s,11*s);c.lineTo(5*s,11*s);c.stroke()}
+ else if(asleep||blink){for(const sx of[-ex,ex]){c.beginPath();c.arc(sx,ey,r*1.2,.15*Math.PI,.85*Math.PI);c.stroke()}c.beginPath();c.arc(0,10*s,2.2*s,0,6.29);c.stroke();if(asleep){c.font=(12*s)+'px sans-serif';c.fillStyle=THEME.ink2;c.fillText('z',ex+16*s,ey-10*s)}}
+ else{
+  if(md==='hot'){for(const d of[-1,1]){c.beginPath();c.moveTo(d*ex-d*r,ey-r);c.lineTo(d*ex+d*r,ey);c.lineTo(d*ex-d*r,ey+r);c.stroke()}}
+  else if(md==='sick'){for(const sx of[-ex,ex]){c.beginPath();c.arc(sx,ey,r*1.1,0,6.29);c.stroke();c.beginPath();c.arc(sx+r*.3,ey,r*.4,0,6.29);c.fill()}}
+  else{const dy=md==='thirsty'?2*s:0;c.beginPath();c.arc(-ex,ey+dy,r,0,6.29);c.arc(ex,ey+dy,r,0,6.29);c.fill();c.fillStyle='#fff';c.beginPath();c.arc(-ex+r*.35,ey+dy-r*.35,r*.32,0,6.29);c.arc(ex+r*.35,ey+dy-r*.35,r*.32,0,6.29);c.fill();c.fillStyle=C.face}
+  c.beginPath();
+  if(md==='happy')c.arc(0,6*s,5*s,.15*Math.PI,.85*Math.PI);
+  else if(md==='thirsty'){c.arc(0,15*s,4.5*s,1.2*Math.PI,1.8*Math.PI)}
+  else if(md==='sick'){c.moveTo(-6*s,11*s);c.quadraticCurveTo(-3*s,7*s,0,11*s);c.quadraticCurveTo(3*s,15*s,6*s,11*s)}
+  else if(md==='hot'){c.arc(0,11*s,3.2*s,0,6.29)}
+  else if(md==='cold'){c.moveTo(-6*s,11*s);c.lineTo(-3*s,8*s);c.lineTo(0,11*s);c.lineTo(3*s,8*s);c.lineTo(6*s,11*s)}
+  else{c.moveTo(-4*s,11*s);c.lineTo(4*s,11*s)}
+  c.stroke();
+  if(md==='thirsty'){c.fillStyle=C.water;c.beginPath();c.moveTo(ex+12*s,ey-8*s);c.quadraticCurveTo(ex+17*s,ey+1*s,ex+12*s,ey+2*s);c.quadraticCurveTo(ex+7*s,ey+1*s,ex+12*s,ey-8*s);c.fill()}
+  if(md==='cold'){c.strokeStyle=C.water;c.lineWidth=1.8*s;for(const d of[-1,1]){c.beginPath();c.moveTo(d*(ex+14*s),-8*s);c.lineTo(d*(ex+14*s),2*s);c.stroke()}}
+ }
+ c.restore();
+}
+
+// ---------- 繪製：盆 ----------
+function potDims(p,S){return p.sp==='ficus'?{w:150*S,h:50*S}:(()=>{const k=[.8,1,1.25][p.pot];return{w:120*k*S,h:92*k*S}})()}
+function drawPot(c,p,X,Y,S,md,asleep,dt){
+ const d=potDims(p,S),col=p.sp==='pothos'?C.terra:p.sp==='echeveria'?C.cream:C.teal;
+ // 根從排水孔鑽出來
+ if(p.fill>.88){c.strokeStyle='#f3ead6';c.lineWidth=2.2*S;c.lineCap='round';for(let i=-1;i<=1;i++){c.beginPath();c.moveTo(X+i*d.w*.1,Y-3*S);c.quadraticCurveTo(X+i*d.w*.16,Y+8*S,X+i*d.w*.12+Math.sin(tClock+i)*2,Y+14*S);c.stroke()}}
+ // 托盤
+ c.fillStyle=mix(col,'#000000',.15);c.beginPath();c.ellipse(X,Y-2*S,d.w*.58,6*S,0,0,6.29);c.fill();
+ // 盆身
+ const tw=d.w,bw=d.w*.7;
+ c.fillStyle=col;c.beginPath();c.moveTo(X-tw/2,Y-d.h);c.lineTo(X+tw/2,Y-d.h);c.quadraticCurveTo(X+bw/2+4*S,Y-d.h*.3,X+bw/2,Y-4*S);c.lineTo(X-bw/2,Y-4*S);c.quadraticCurveTo(X-bw/2-4*S,Y-d.h*.3,X-tw/2,Y-d.h);c.closePath();c.fill();
+ c.fillStyle='rgba(255,255,255,.18)';c.beginPath();c.ellipse(X-tw*.28,Y-d.h*.45,tw*.06,d.h*.28,0,0,6.29);c.fill();
+ c.fillStyle=mix(col,'#000000',.12);rr(c,X-tw/2-3*S,Y-d.h-8*S,tw+6*S,12*S,5*S);c.fill();
+ // 土
+ c.fillStyle=mixRGB(C.soilDry,C.soilWet,clamp((p.w-.1)/.8,0,1));c.beginPath();c.ellipse(X,Y-d.h-2*S,tw*.45,6*S,0,0,6.29);c.fill();
+ drawFace(c,X,Y-d.h*.5,S*(p.sp==='ficus'?.9:1),md,asleep);
+ // 排水滴
+ if(p.w>SP[p.sp].fc+.03&&Math.random()<dt*10)fx.push({k:'drop',x:X+d.w*.2,y:Y,vx:0,vy:20,life:.8,t:0});
+}
+
+// ---------- 繪製：植物 ----------
+function heart(c,sz){c.beginPath();c.moveTo(sz,0);c.bezierCurveTo(sz*.7,-sz*.55,sz*.15,-sz*.62,0,-sz*.28);c.bezierCurveTo(-sz*.12,-sz*.12,-sz*.12,sz*.12,0,sz*.28);c.bezierCurveTo(sz*.15,sz*.62,sz*.7,sz*.55,sz,0);c.closePath()}
+function drawPothos(c,p,X,Y,S,pt){
+ const droop=1-p.turgor,spacing=10*S,cc=(.35+droop*.5)*S;
+ const pts=[];
+ p.stems.forEach((st,si)=>{
+  let ax=0,ay=0;
+  if(st.par){const q=pts[st.par.si][st.par.ni];ax=q.lx;ay=q.ly}else ax=st.side*10*S;
+  const arr=[];
+  for(let i=0;i<st.nodes.length;i++){
+   const j=i+1,h=spacing*j*(1+1.8*p.etio)-cc*j*j,xo=st.side*S*(3.2*j+.12*j*j);
+   arr.push({lx:ax+xo,ly:ay-h});
+  }
+  pts.push(arr);
+  // 莖
+  c.strokeStyle=C.stem;c.lineWidth=2.6*S;c.lineCap='round';c.beginPath();
+  let a=pt(ax,ay);c.moveTo(a[0],a[1]);
+  arr.forEach(q=>{const b=pt(q.lx,q.ly);c.lineTo(b[0],b[1])});c.stroke();
+  arr.forEach((q,i)=>{const b=pt(q.lx,q.ly);hits.push({pid:p.id,kind:'pstem',si,ni:i,x:b[0],y:b[1],r:11*S})});
+ });
+ // 葉（從老到新）
+ p.stems.forEach((st,si)=>st.nodes.forEach((n,i)=>{
+  if(n.bare)return;
+  const q=pts[si][i],b=pt(q.lx,q.ly),sgn=((i+si)%2)?1:-1,down=.3+droop*1.1;
+  const ang=sgn>0?down:Math.PI-down,sz=24*S*n.s*(1-.3*p.etio)+2*S;
+  const pet=7*S;
+  c.save();c.translate(b[0],b[1]);c.rotate(ang);
+  c.strokeStyle=C.stem;c.lineWidth=1.6*S;c.beginPath();c.moveTo(0,0);c.lineTo(pet,0);c.stroke();
+  c.translate(pet,0);
+  let col=mixRGB(mix(C.leaf,C.leafD,.15*(i%3)),C.leafY,n.y);if(n.y>.97)col=C.leafDead;
+  heart(c,sz);c.fillStyle=col;c.fill();
+  c.fillStyle='rgba(232,212,106,.5)';for(let k=0;k<2;k++){c.beginPath();c.ellipse(sz*(.35+.25*hash(si*50+i,k)),(hash(i,k+4)-.5)*sz*.4,sz*.1,sz*.07,hash(i,k),0,6.29);c.fill()}
+  if(p.scar>.12&&hash(si*50+i,11)<p.scar*1.4){c.fillStyle='rgba(150,100,50,.75)';c.beginPath();c.ellipse(sz*.5,sz*.1,sz*.17,sz*.12,.4,0,6.29);c.fill()}
+  c.strokeStyle='rgba(30,80,40,.35)';c.lineWidth=1;c.beginPath();c.moveTo(0,0);c.lineTo(sz*.9,0);c.stroke();
+  c.restore();
+  const cxp=b[0]+Math.cos(ang)*(pet+sz*.5),cyp=b[1]+Math.sin(ang)*(pet+sz*.5);
+  hits.push({pid:p.id,kind:'pleaf',si,ni:i,x:cxp,y:cyp,r:Math.max(14*S,sz*.5)});
+ }));
+}
+function petal(c,bx,by,tx,ty,w){const dx=tx-bx,dy=ty-by,L=Math.hypot(dx,dy)||1,nx=-dy/L*w,ny=dx/L*w;c.beginPath();c.moveTo(bx,by);c.bezierCurveTo(bx+dx*.25+nx,by+dy*.25+ny,bx+dx*.75+nx*.9,by+dy*.75+ny*.9,tx,ty);c.bezierCurveTo(bx+dx*.75-nx*.9,by+dy*.75-ny*.9,bx+dx*.25-nx,by+dy*.25-ny,bx,by);c.closePath()}
+function drawSucc(c,p,X,Y,S,pt){
+ const n=p.leaves.length,stemH=p.stem*S;
+ const top=pt(0,-stemH-6*S),cx=top[0],cy=top[1];
+ if(stemH>2){c.strokeStyle=C.stem;c.lineWidth=7*S;c.lineCap='round';c.beginPath();const b=pt(0,0);c.moveTo(b[0],b[1]);c.lineTo(cx,cy);c.stroke()}
+ const arr=p.leaves.map((l,j)=>{const r=j/Math.max(1,n-1),th=j*2.39996,el=(.35+(1.35-.35)*r)*(1-.3*p.etio);return{l,j,r,th,el,key:Math.cos(th)*Math.cos(el)*.5+r}}).sort((a,b)=>a.key-b.key);
+ const blush=clamp((p.accl-.5)*1.2*(1-clamp((p.lastT||22)-18,0,8)/10),0,.9);
+ for(const o of arr){
+  const{l,j,r,th,el}=o;
+  const len=46*S*l.s*(1.05-.62*r)*(.8+.25*p.plump)+3*S;
+  const hx=Math.sin(th)*Math.cos(el),hy=-Math.sin(el)+(1-p.plump)*.4*(1-r);
+  const bx=cx+hx*len*.08,by=cy+hy*len*.08,tx=cx+hx*len,ty=cy+hy*len*.92;
+  const w=len*.24*(.6+.5*p.plump);
+  const base=l.y>.9?C.leafDead:mixRGB(mix(C.succ,C.succD,r*.5),C.leafDead,l.y*.9);
+  const g=c.createLinearGradient(bx,by,tx,ty);g.addColorStop(0,base);g.addColorStop(.7,base);g.addColorStop(1,mixRGB(base,C.blush,blush));
+  petal(c,bx,by,tx,ty,w);c.fillStyle=g;c.fill();
+  c.strokeStyle='rgba(40,90,70,.25)';c.lineWidth=1;c.stroke();
+  if(p.plump<.55){c.strokeStyle='rgba(60,90,60,.35)';c.lineWidth=1;for(let k=1;k<3;k++){const f=.25*k+.1,mx=bx+(tx-bx)*f,my=by+(ty-by)*f;c.beginPath();c.moveTo(mx-w*.4,my);c.lineTo(mx+w*.4,my+2);c.stroke()}}
+  if(p.rot>.2&&r<.45){c.fillStyle='rgba(70,40,20,'+(p.rot*.5)+')';petal(c,bx,by,tx,ty,w);c.fill()}
+  if(p.scar>.12&&hash(j,13)<p.scar*1.5){c.fillStyle='rgba(190,150,90,.8)';c.beginPath();c.ellipse(bx+(tx-bx)*.55,by+(ty-by)*.55,w*.45,w*.35,0,0,6.29);c.fill()}
+  hits.push({pid:p.id,kind:'sleaf',li:j,x:bx+(tx-bx)*.7,y:by+(ty-by)*.7,r:Math.max(12*S,w*.9)});
+ }
+ c.fillStyle=mix(C.succ,'#ffffff',.4);c.beginPath();c.arc(cx,cy-3*S,5*S,0,6.29);c.fill();
+}
+function drawTree(c,p,X,Y,S,pt){
+ const T=p.tree,lay=layoutTree(p);
+ p._org={x:X,y:Y,S};
+ // 根盤
+ c.fillStyle=C.bark;c.beginPath();const b0=pt(0,0);c.moveTo(b0[0]-T[0].th*S*1.5,b0[1]+2*S);c.quadraticCurveTo(b0[0]-T[0].th*S*.6,b0[1]-6*S,b0[0]-T[0].th*S*.5,b0[1]-12*S);c.lineTo(b0[0]+T[0].th*S*.5,b0[1]-12*S);c.quadraticCurveTo(b0[0]+T[0].th*S*.6,b0[1]-6*S,b0[0]+T[0].th*S*1.5,b0[1]+2*S);c.closePath();c.fill();
+ c.lineCap='round';
+ for(let i=0;i<T.length;i++){
+  const a=pt(lay.x0[i]*S,lay.y0[i]*S),b=pt(lay.x1[i]*S,lay.y1[i]*S);
+  c.strokeStyle=mix(C.bark,C.barkL,Math.min(1,i/60));c.lineWidth=Math.max(1.6,T[i].th*S);
+  c.beginPath();c.moveTo(a[0],a[1]);c.lineTo(b[0],b[1]);c.stroke();
+  if(T[i].w){c.strokeStyle=C.copper;c.lineWidth=Math.max(1.6,2*S);c.setLineDash([3*S,3*S]);c.beginPath();c.moveTo(a[0],a[1]);c.lineTo(b[0],b[1]);c.stroke();c.setLineDash([])}
+  if(T[i].sc){c.strokeStyle=C.scar;c.lineWidth=Math.max(1.6,T[i].th*S)+1.5;c.setLineDash([2*S,5*S]);c.beginPath();c.moveTo(a[0],a[1]);c.lineTo(b[0],b[1]);c.stroke();c.setLineDash([])}
+  hits.push({pid:p.id,kind:'fnode',ni:i,x:b[0],y:b[1],r:Math.max(10,14*S)});
+ }
+ const droop=1-p.turgor;
+ for(let i=0;i<T.length;i++){
+  const n=T[i];if(n.par<0||n.lf<.04)continue;
+  const b=pt(lay.x1[i]*S,lay.y1[i]*S),sz=9*S*n.lf+1.5*S;
+  const col=mixRGB(mix(C.ficus,C.leafD,.2*hash(i,2)),C.leafY,n.y);
+  for(let k=0;k<4;k++){
+   const ang=-Math.PI/2+(k-1.5)*.9+(hash(i,k)-.5)*.6+droop*1.1*(k<2?-1:1);
+   const lx=b[0]+Math.cos(ang)*sz*.6,ly=b[1]+Math.sin(ang)*sz*.6;
+   c.fillStyle=k%2?col:mixRGB(col,'#ffffff',.08);c.beginPath();c.ellipse(lx,ly,sz*.55,sz*.32,ang,0,6.29);c.fill();
+  }
+ }
+}
+function drawPlantSlot(p,X,Y,m,dt,alpha,lifted){
+ const S=m.S,d=potDims(p,S),md=mood(p),asleep=W.h>=22||W.h<5;
+ ctx.save();ctx.globalAlpha=alpha;
+ if(lifted){ctx.fillStyle='rgba(0,0,0,.18)';ctx.beginPath();ctx.ellipse(X,m.baseY,d.w*.5,8*S,0,0,6.29);ctx.fill()}
+ drawPot(ctx,p,X,Y,S,md,asleep,dt);
+ const rimY=Y-d.h-2*S;
+ const shear=ly=>p.lean*ly*ly/(1100*S);
+ const pt=(lx,ly)=>[X+lx+shear(ly),rimY+ly];
+ if(!p.dead){
+  if(p.sp==='pothos')drawPothos(ctx,p,X,rimY,S,pt);
+  else if(p.sp==='echeveria')drawSucc(ctx,p,X,rimY,S,pt);
+  else drawTree(ctx,p,X,rimY,S,pt);
+ }else{
+  ctx.strokeStyle=C.leafDead;ctx.lineWidth=3*S;ctx.lineCap='round';for(let i=-1;i<=1;i++){ctx.beginPath();ctx.moveTo(X+i*6*S,rimY);ctx.quadraticCurveTo(X+i*14*S,rimY-30*S,X+i*22*S,rimY-24*S);ctx.stroke()}
+ }
+ ctx.restore();
+}
+
+// ---------- 繪製：主 ----------
+function drawFx(dt){
+ for(let i=fx.length-1;i>=0;i--){
+  const f=fx[i];f.t+=dt;if(f.t>f.life){fx.splice(i,1);continue}
+  f.x+=(f.vx||0)*dt;f.y+=f.vy*dt;
+  if(f.k==='drop'||f.k==='pour'){f.vy+=900*dt;ctx.fillStyle=C.water;ctx.globalAlpha=1-f.t/f.life;ctx.beginPath();ctx.ellipse(f.x,f.y,2.6,4,0,0,6.29);ctx.fill()}
+  else if(f.k==='spark'){f.vy+=-30*dt;ctx.fillStyle=f.col||'#ffd86a';ctx.globalAlpha=1-f.t/f.life;ctx.beginPath();ctx.arc(f.x,f.y,3.2,0,6.29);ctx.fill()}
+  else if(f.k==='leaf'){f.vy+=260*dt;ctx.globalAlpha=1-f.t/f.life;ctx.fillStyle=f.col||C.leaf;ctx.save();ctx.translate(f.x,f.y);ctx.rotate(f.t*4);ctx.beginPath();ctx.ellipse(0,0,7,3.5,0,0,6.29);ctx.fill();ctx.restore()}
+  ctx.globalAlpha=1;
+ }
+}
+function drawGhost(m){
+ // 工具跟著手指（水壺／剪刀／肥料／新盆／蟠紮）
+ const t=ptr.fromTray?ui.tool:ui.tool;
+ if(!ptr.down||t==='hand')return;
+ const x=ptr.wx,y=ptr.wy;
+ ctx.save();ctx.translate(x,y);
+ if(t==='water'){
+  ctx.rotate(ptr.pour&&ptr.pouring?-.55:-.15);
+  ctx.fillStyle='#8fb6d6';rr(ctx,-34,-26,56,44,10);ctx.fill();ctx.fillStyle='#a8c8e2';ctx.fillRect(-34,-26,56,10);
+  ctx.strokeStyle='#8fb6d6';ctx.lineWidth=8;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(20,-8);ctx.lineTo(48,-26);ctx.stroke();
+  ctx.beginPath();ctx.arc(-38,-6,16,Math.PI*.5,Math.PI*1.5);ctx.lineWidth=7;ctx.stroke();
+ }else{ctx.font='40px sans-serif';ctx.textAlign='center';ctx.fillText({fert:'🌱',scissors:'✂️',pot:'🪴',wire:'🪢'}[t]||'',0,12)}
+ ctx.restore();
+ if(t==='scissors'||t==='wire'){const h=nearestHit(x,y,40,true);if(h){ctx.strokeStyle=THEME.accent;ctx.lineWidth=3;ctx.beginPath();ctx.arc(h.x,h.y,h.r+4,0,6.29);ctx.stroke()}}
+}
+function drawWorld(dt){
+ const m=metrics(),hf=W.h+accFrac,dl=clamp(Math.sin(Math.PI*(hf-6)/12)*1.5+.2,0,1);
+ const raining=W.wx.rain&&hf>=W.wx.r0&&hf<W.wx.r1;
+ ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle=THEME.paper;ctx.fillRect(0,0,cv.width,cv.height);
+ const k=scale*dpr;
+ ctx.setTransform(k*cam.z,0,0,k*cam.z,k*(LW/2-cam.cx*cam.z),k*(LH/2-cam.cy*cam.z));
+ hits=[];
+ drawRoom(m,hf,dl,raining);
+ const sel=ui.sel!=null?plantById(ui.sel):null;
+ m.sp.forEach((sk,i)=>{
+  const p=plantAt(sk),X=slotX(i,m.n);
+  if(!p){ctx.strokeStyle=THEME.ink2;ctx.globalAlpha=.4;ctx.setLineDash([8,8]);ctx.lineWidth=2;rr(ctx,X-m.slotW*.3,m.baseY-110*m.S,m.slotW*.6,106*m.S,16);ctx.stroke();ctx.setLineDash([]);ctx.globalAlpha=1;return}
+  if(ptr.dr&&ptr.dr.moved&&ptr.dr.p===p){drawSlotGhost(m,X);return}
+  p.lastT=envFor(W,p.spot).T;
+  drawPlantSlot(p,X,m.baseY,m,dt,sel&&sel!==p?.55:1,false);
+ });
+ if(ptr.dr&&ptr.dr.moved){const p=ptr.dr.p;drawPlantSlot(p,ptr.wx,ptr.wy+40*m.S,m,dt,1,true)}
+ // 陽台下雨：打在盆上
+ if(raining)for(const sk of m.sp)if(sk==='balc'&&Math.random()<dt*14){const i=m.sp.indexOf(sk);fx.push({k:'drop',x:slotX(i,m.n)+(Math.random()-.5)*m.slotW*.5,y:m.baseY-200*m.S,vx:-20,vy:200,life:.5,t:0})}
+ drawFx(dt);
+ drawGhost(m);
+ // 夜色
+ ctx.fillStyle='rgba(18,22,58,'+((1-dl)*.38)+')';ctx.fillRect(-LW,-LH,LW*3,LH*3);
+}
+function drawSlotGhost(m,X){ctx.strokeStyle=THEME.accent;ctx.globalAlpha=.5;ctx.setLineDash([8,8]);ctx.lineWidth=2;rr(ctx,X-m.slotW*.3,m.baseY-110*m.S,m.slotW*.6,106*m.S,16);ctx.stroke();ctx.setLineDash([]);ctx.globalAlpha=1}
+
+// ---------- 操作 ----------
+const ptr={down:false,cx:0,cy:0,wx:0,wy:0,startX:0,startY:0,moved:false,fromTray:false,prevTool:'hand',dr:null,pour:false,pouring:false,pourP:null,pourW0:0,wire:null};
+function evPos(e){ptr.cx=e.clientX/scale;ptr.cy=e.clientY/scale;ptr.wx=(ptr.cx-LW/2)/cam.z+cam.cx;ptr.wy=(ptr.cy-LH/2)/cam.z+cam.cy}
+function slotAt(wx,wy){
+ const m=metrics();if(wx<0||wx>=LW)return null;
+ if(wy<m.baseY-360*m.S||wy>m.baseY+40)return null;
+ const i=Math.floor(wx/m.slotW),sk=m.sp[i];
+ return{i,spot:sk,p:plantAt(sk)};
+}
+function nearestHit(wx,wy,rpx,onlySel){
+ const rw=rpx/scale/cam.z;let best=null,bd=1e9;
+ for(const h of hits){
+  if(onlySel&&h.pid!==ui.sel)continue;
+  const d=Math.hypot(h.x-wx,h.y-wy);
+  if(d<=h.r+rw&&d-h.r<bd){bd=d-h.r;best=h}
+ }
+ return best;
+}
+function selectPlant(p){ui.sel=p.id;ui.tab='o';openSheet(true);SND.tone(520,.08,.04)}
+function deselect(){ui.sel=null;openSheet(false)}
+cv.addEventListener('pointerdown',e=>{
+ SND.init();evPos(e);ptr.down=true;ptr.fromTray=false;ptr.startX=ptr.cx;ptr.startY=ptr.cy;ptr.moved=false;
+ try{cv.setPointerCapture(e.pointerId)}catch(_){}
+ onDown();
+});
+addEventListener('pointermove',e=>{evPos(e);if(!ptr.down)return;if(Math.hypot(ptr.cx-ptr.startX,ptr.cy-ptr.startY)>8)ptr.moved=true;onMove()});
+addEventListener('pointerup',e=>{if(!ptr.down)return;evPos(e);onUp();ptr.down=false});
+addEventListener('pointercancel',()=>{endPour();ptr.dr=null;ptr.wire=null;ptr.down=false;ptr.fromTray=false});
+document.querySelectorAll('.tool').forEach(b=>b.addEventListener('pointerdown',e=>{
+ e.preventDefault();SND.init();evPos(e);
+ ptr.prevTool=ui.tool;ui.tool=b.dataset.tool;ptr.down=true;ptr.fromTray=true;ptr.startX=ptr.cx;ptr.startY=ptr.cy;ptr.moved=false;
+ ptr.pour=ui.tool==='water';if(ptr.pour)SND.pour(true);
+}));
+function onDown(){
+ const t=ui.tool;
+ if(t==='water'){ptr.pour=true;SND.pour(true);return}
+ const sl=slotAt(ptr.wx,ptr.wy);
+ if(t==='hand'){ptr.dr=sl&&sl.p?{p:sl.p,moved:false}:null;return}
+ if(t==='wire')startWire();
+}
+function onMove(){
+ if(ui.tool==='hand'&&ptr.dr&&ptr.moved)ptr.dr.moved=true;
+ if(ptr.wire)moveWire();
+}
+function onUp(){
+ const t=ui.tool;
+ if(ptr.fromTray){
+  if(!ptr.moved)ui.tool=(ptr.prevTool===t?'hand':t);
+  else{if(t!=='water')applyAt(t);ui.tool=ptr.prevTool}
+  endPour();ptr.fromTray=false;return;
+ }
+ if(t==='water'){endPour();return}
+ if(t==='hand'){
+  if(ptr.dr){if(ptr.dr.moved)dropPot();else selectPlant(ptr.dr.p)}
+  else if(!ptr.moved)deselect();
+  ptr.dr=null;return;
+ }
+ if(t==='wire'){commitWire();return}
+ applyAt(t);
+}
+function dropPot(){
+ const m=metrics(),p=ptr.dr.p,i=clamp(Math.floor(ptr.wx/m.slotW),0,m.n-1),sk=m.sp[i];
+ if(sk===p.spot)return;
+ const other=plantAt(sk),old=p.spot;
+ p.spot=sk;plog(W,p,'搬到「'+SPOT[sk].n+'」');
+ if(other){other.spot=old;plog(W,other,'被換到「'+SPOT[old].n+'」')}
+ SND.tone(330,.12,.05);
+ if(ui.sel!=null)camTarget();
+}
+function applyAt(t){
+ const sl=slotAt(ptr.wx,ptr.wy);
+ if(t==='fert'&&sl&&sl.p&&!sl.p.dead){
+  sl.p.N+=.42;plog(W,sl.p,'施肥（養分 +0.42，現在 '+sl.p.N.toFixed(2)+'）');
+  const m=metrics(),X=slotX(sl.i,m.n);for(let k=0;k<10;k++)fx.push({k:'spark',x:X+(Math.random()-.5)*60,y:m.baseY-130*m.S,vx:(Math.random()-.5)*40,vy:-30,life:.9,t:0,col:'#e8d070'});
+  SND.tone(740,.15,.05);
+ }else if(t==='pot'&&sl&&sl.p&&!sl.p.dead)repotPlant(sl.p);
+ else if(t==='scissors'){
+  if(sl&&sl.p&&ui.sel!==sl.p.id){selectPlant(sl.p);toast('已靠近。再點一次要剪的地方。');return}
+  const h=nearestHit(ptr.wx,ptr.wy,40,true);if(h)cutTarget(h);
+ }
+}
+function endPour(){
+ if(ptr.pourP){const p=ptr.pourP;plog(W,p,'澆水（土壤水分 '+pct(ptr.pourW0)+'% → '+pct(p.w)+'%）');ptr.pourP=null}
+ ptr.pour=false;ptr.pouring=false;SND.pour(false);
+}
+function pourOn(p,dt){
+ const S=SP[p.sp];
+ if(ptr.pourP!==p){if(ptr.pourP)endPourLogOnly();ptr.pourP=p;ptr.pourW0=p.w}
+ const eff=p.w<S.wp+.06?.45:1;
+ p.w+=.16*dt*eff;
+ if(p.w>1){const run=p.w-1;p.w=1;p.N=Math.max(0,p.N-run*.05)}
+ ptr.pouring=true;
+ const m=metrics(),sl=slotAt(ptr.wx,ptr.wy);
+ fx.push({k:'pour',x:ptr.wx+40,y:ptr.wy-20,vx:(Math.random()-.5)*20,vy:60,life:.45,t:0});
+}
+function endPourLogOnly(){const p=ptr.pourP;if(p)plog(W,p,'澆水（土壤水分 '+pct(ptr.pourW0)+'% → '+pct(p.w)+'%）');ptr.pourP=null}
+function repotPlant(p){
+ const S=SP[p.sp];
+ const rb=p.rot;
+ p.root-=p.root*rb*.6;
+ if(S.kind==='bonsai'){p.root*=.72;p.rot*=.3;p.N=.3;p.w=.55;p.shock=72;plog(W,p,'修根換土：剪掉約三成根，同一個淺盆；樹會暫時停長');toast('修根換土：樹形盆栽不換大盆，要把根修小。')}
+ else{
+  const bigger=p.pot<2;if(bigger)p.pot++;
+  p.root*=.88;p.rot*=.25;p.N=.4;p.w=.6;p.shock=48;
+  plog(W,p,bigger?'換到大一號的盆（修根、換新土；根受傷，停長約兩天）':'換新土（已是最大盆）；根受傷，停長約兩天');
+  toast(bigger?'換盆完成。根會暫時受傷，慢慢澆水。':'已是最大盆，只換了新土。');
+ }
+ SND.tone(260,.2,.06);
+}
+function cutTarget(h){
+ const p=plantById(h.pid);if(!p||p.dead)return;
+ let ok=false;
+ if(h.kind==='pleaf'){const n=p.stems[h.si]&&p.stems[h.si].nodes[h.ni];if(n&&!n.bare){n.bare=true;plog(W,p,'剪掉一片葉子');ok=true}}
+ else if(h.kind==='pstem'){
+  const st=p.stems[h.si];
+  if(st&&h.ni<st.nodes.length-1){
+   const before=p.LA;st.nodes.length=h.ni+1;
+   const rm=new Set();
+   p.stems.forEach((s,si)=>{if(s.par&&(rm.has(s.par.si)||(s.par.si===h.si&&s.par.ni>h.ni)))rm.add(si)});
+   const map=[],out=[];p.stems.forEach((s,i)=>{if(!rm.has(i)){map[i]=out.length;out.push(s)}});out.forEach(s=>{if(s.par)s.par={si:map[s.par.si],ni:s.par.ni}});p.stems=out;
+   const si2=map[h.si];
+   if(st.nodes.length>=2)p.stems.push({par:{si:si2,ni:h.ni},side:Math.random()<.5?-1:1,nodes:[{s:.1,y:0,dead:0,bare:false}]});
+   p.LA=calcLA(p);if(before>0&&(before-p.LA)/before>.4)p.shock=Math.max(p.shock,48);
+   plog(W,p,'修剪藤蔓：剪口的腋芽被釋放，之後會分出新藤');ok=true;
+  }else toast('這裡已經是藤蔓尖端。剪藤的中段才會分枝。');
+ }
+ else if(h.kind==='sleaf'){if(p.leaves.length>3){p.leaves.splice(h.li,1);plog(W,p,'剪掉一片葉子');ok=true}else toast('葉子太少了，不剪。')}
+ else if(h.kind==='fnode'){if(!cutTree(W,p,h.ni))toast('主幹基部不能剪。');else ok=true}
+ if(ok){for(let k=0;k<6;k++)fx.push({k:'leaf',x:h.x,y:h.y,vx:(Math.random()-.5)*60,vy:-20,life:1,t:0,col:C.leaf});SND.tone(900,.06,.06)}
+}
+function startWire(){
+ const p=ui.sel!=null?plantById(ui.sel):null;
+ if(!p||p.sp!=='ficus'){toast('先點選小葉榕，再用蟠紮。');return}
+ const h=nearestHit(ptr.wx,ptr.wy,40,true);if(!h||h.kind!=='fnode')return;
+ const n=p.tree[h.ni];if(h.ni===0)return;
+ ptr.wire={p,ni:h.ni,a0:n.a,had:!!n.w,moved:false};
+}
+function moveWire(){
+ const w=ptr.wire;if(!w||!ptr.moved)return;
+ const p=w.p,lay=layoutTree(p),o=p._org;if(!o)return;
+ const i=w.ni,n=p.tree[i],S=o.S;
+ const ox=o.x+lay.x0[i]*S,oy=o.y+lay.y0[i]*S;
+ const th=Math.atan2(ptr.wy-oy,ptr.wx-ox),par=p.tree[i].par,tp=par<0?-Math.PI/2:lay.ang[par];
+ let a=th-tp;while(a>Math.PI)a-=2*Math.PI;while(a<-Math.PI)a+=2*Math.PI;
+ n.a=clamp(a,-1.7,1.7);w.moved=true;
+ if(!n.w)n.w={a0:w.a0,since:W.day*24+W.h};
+}
+function commitWire(){
+ const w=ptr.wire;ptr.wire=null;if(!w)return;
+ const n=w.p.tree[w.ni];
+ if(w.moved){n.w.since=W.day*24+W.h;plog(W,w.p,'蟠紮：上銅線並彎枝。要留約 5 週才定型；超過 10 週會咬進樹皮');toast('已蟠紮。時間夠久才會定型；太久會留下咬痕。')}
+ else if(w.had&&n.w){
+  const held=(W.day*24+W.h-n.w.since)/24,frac=Math.min(1,held/35);
+  n.a=n.a+(n.w.a0-n.a)*(1-frac)*.85;
+  if(held>75)n.sc=1;
+  plog(W,w.p,'拆線（綁了 '+Math.round(held)+' 天'+(frac<1?'，沒定型，枝條回彈':'，已定型')+(held>75?'，留下咬痕':'')+'）');
+  n.w=null;toast(frac<1?'拆太早，枝條彈回去了。':'拆線，造型定住了。');
+ }
+}
+
+// ---------- 面板 ----------
+function observe(p){
+ const S=SP[p.sp],o=[];
+ if(p.dead)return['已經枯死了。可以重新栽種。'];
+ if(p.turgor<.6)o.push(S.kind==='succ'?'葉片皺縮、變薄':'葉子明顯下垂');
+ else if(p.turgor<.85&&S.kind!=='succ')o.push('葉子微微下垂');
+ if(p.w<S.wp+.08)o.push('土表乾白、縮邊');
+ if(p.w>.9)o.push('土表積著水');
+ if(p.etio>.45)o.push(S.kind==='succ'?'蓮座張開、莖拉長':'長得細長、葉距拉開');
+ if(p.yf>.15)o.push('有些葉子變黃');
+ if(p.scar>.15)o.push('葉面有褐色曬斑');
+ if(p.cold>.12)o.push('葉尖發黑、軟掉');
+ if(p.burn>.12)o.push('葉緣焦枯');
+ if(p.rot>.2)o.push('植株軟弱、土有酸味');
+ if(Math.abs(p.lean)>.4)o.push('整株往光的方向歪');
+ if(p.fill>.9)o.push('根從排水孔鑽出來了');
+ if(p.shock>0)o.push('剛動過根或剪過，暫時停長');
+ if(!o.length)o.push('看起來精神飽滿');
+ return o;
+}
+function meter(label,v,max,color,txt,marks){
+ const w=clamp(v/max,0,1)*100;
+ return '<div class="meter"><div class="t"><span>'+label+'</span><span>'+txt+'</span></div><div class="bar"><i style="width:'+w+'%;background:'+color+'"></i>'+(marks||[]).map(m=>'<u style="left:'+clamp(m/max,0,1)*100+'%"></u>').join('')+'</div></div>';
+}
+function fmtT(t){return '第'+(Math.floor(t/24)+1)+'天 '+String(t%24).padStart(2,'0')+':00'}
+let sheetSig='';
+function openSheet(on){$('sheet').classList.toggle('open',on);if(on)renderSheet(true)}
+function renderSheet(force){
+ const el=$('sheet');if(!el.classList.contains('open'))return;
+ const p=ui.sel!=null?plantById(ui.sel):null;if(!p){el.classList.remove('open');return}
+ const S=SP[p.sp],body=el.querySelector('.body'),st=body?body.scrollTop:0;
+ const e=envFor(W,p.spot);
+ let h='<div class="hd"><b>'+S.name+'</b><span>'+(S.kind==='bonsai'?'盆景':POT[p.pot].n)+' · '+SPOT[p.spot].n+'</span><button data-act="close">✕</button></div>';
+ h+='<div class="tabs"><button data-act="tab:o" class="'+(ui.tab==='o'?'on':'')+'">觀察</button><button data-act="tab:d" class="'+(ui.tab==='d'?'on':'')+'">診斷</button><button data-act="tab:l" class="'+(ui.tab==='l'?'on':'')+'">日誌</button></div><div class="body">';
+ if(ui.tab==='o'){
+  h+=observe(p).map(s=>'<span class="chip">'+s+'</span>').join('');
+  h+='<div style="margin-top:4px">';
+  if(p.dead)h+='<button class="act" data-act="replant">🌱 重新栽種</button>';
+  else{if(S.kind!=='bonsai')h+='<button class="act" data-act="rotate">↻ 轉盆</button>'}
+  h+='</div>';
+  if(S.kind==='bonsai'&&!p.dead){
+   const b=bonsaiScore(p);
+   h+='<div style="margin-top:8px"><b>樹形分 '+Math.round(b.total)+'</b> <span class="note">（直幹式：三角樹冠）</span></div>';
+   h+=meter('進入樹冠輪廓',b.fit,1,THEME.leaf,pct(b.fit)+'%')+meter('枝梢密度',b.dens,1,THEME.leaf,b.tips+' 個枝梢')+meter('左右平衡',b.bal,1,THEME.leaf,pct(b.bal)+'%')+meter('細緻度（節間短）',b.fine,1,THEME.leaf,pct(b.fine)+'%')+meter('收尖（基部粗、梢細）',b.taper,1,THEME.leaf,pct(b.taper)+'%');
+  }
+  h+='<div class="note" style="margin-top:8px">'+(S.kind==='bonsai'?'剪刀點枝條末端剪枝；蟠紮工具拖枝條彎折，再點一次拆線。':S.kind==='succ'?'石蓮花耐旱怕濕，光不夠會徒長。':'黃金葛耐陰，但土太久不乾會爛根。')+'</div>';
+ }else if(ui.tab==='d'){
+  h+=meter('土壤水分',p.w,1,THEME.water,pct(p.w)+'%',[S.wp,S.fc]);
+  h+='<div class="note">刻度：萎凋點 '+pct(S.wp)+'% ／ 田間容水量 '+pct(S.fc)+'%</div>';
+  h+=meter('養分',p.N,1.4,THEME.leaf,p.N.toFixed(2),[.3,.9]);
+  h+=meter('根系填滿度',p.fill,1.2,THEME.accent,pct(p.fill)+'%',[.9]);
+  h+=meter('爛根指數',p.rot,1,THEME.warn,p.rot.toFixed(2));
+  h+=meter('碳儲備',p.C+1.6,S.cap+1.6,'#7a9b5a',p.C.toFixed(2),[1.6]);
+  if(p.burn>.02)h+=meter('肥傷',p.burn,1,THEME.warn,p.burn.toFixed(2));
+  if(p.scar>.02)h+=meter('曬傷',p.scar,1,THEME.warn,p.scar.toFixed(2));
+  if(p.cold>.02)h+=meter('凍傷',p.cold,1,THEME.warn,p.cold.toFixed(2));
+  h+=meter('徒長指數',p.etio,1,THEME.ink2,p.etio.toFixed(2));
+  h+='<div class="note">此刻：光 PAR '+e.par.toFixed(2)+'（已適應 '+p.accl.toFixed(2)+'），氣溫 '+e.T.toFixed(1)+'°C，葉面積 '+p.LA.toFixed(1)+'</div>';
+  h+='<canvas id="chart"></canvas><div class="note">近 7 天：藍＝土壤水分，綠＝碳儲備，紅＝爛根</div>';
+ }else{
+  const L=p.log.slice().reverse();
+  h+=L.length?L.map(x=>'<div class="log"><em>'+fmtT(x[0])+'</em>'+x[1]+'</div>').join(''):'<div class="note">還沒有紀錄。</div>';
+ }
+ h+='</div>';
+ el.innerHTML=h;
+ const nb=el.querySelector('.body');if(nb)nb.scrollTop=st;
+ if(ui.tab==='d')drawChart(p);
+}
+function drawChart(p){
+ const c=$('chart');if(!c)return;
+ const w=c.width=Math.max(300,c.clientWidth*2),h=c.height=130,g=c.getContext('2d');
+ const H=p.hist.slice(-168);if(H.length<2)return;
+ const S=SP[p.sp],X=i=>i/(H.length-1)*w;
+ g.fillStyle=THEME.btn;g.fillRect(0,0,w,h);
+ g.setLineDash([6,6]);g.strokeStyle=THEME.line;g.lineWidth=2;
+ for(const v of[S.wp,S.fc]){const y=h-6-v*(h-12);g.beginPath();g.moveTo(0,y);g.lineTo(w,y);g.stroke()}
+ g.setLineDash([]);
+ const line=(idx,col,fn)=>{g.strokeStyle=col;g.lineWidth=3;g.beginPath();H.forEach((r,i)=>{const y=h-6-fn(r[idx])*(h-12);i?g.lineTo(X(i),y):g.moveTo(X(i),y)});g.stroke()};
+ line(0,THEME.water,v=>clamp(v,0,1));line(1,'#7a9b5a',v=>clamp((v+1.6)/(S.cap+1.6),0,1));line(2,THEME.warn,v=>clamp(v,0,1));
+}
+$('sheet').addEventListener('click',e=>{
+ const b=e.target.closest('[data-act]');if(!b)return;
+ const a=b.dataset.act,p=ui.sel!=null?plantById(ui.sel):null;
+ if(a==='close')deselect();
+ else if(a.startsWith('tab:')){ui.tab=a.slice(4);renderSheet(true)}
+ else if(a==='rotate'&&p){p.lean=-p.lean*.9;plog(W,p,'轉盆 180°（向光彎曲的方向會反過來，之後慢慢彎回去）');toast('轉盆了。它會慢慢重新向光彎。');renderSheet(true)}
+ else if(a==='replant'&&p){const np=newPlant(W,p.sp,p.spot,{pot:p.sp==='ficus'?0:0,w:.45});W.plants[W.plants.indexOf(p)]=np;ui.sel=np.id;renderSheet(true)}
+});
+// 速度鈕
+let resetArm=false;
+$('speed').addEventListener('click',e=>{
+ const b=e.target.closest('button');if(!b)return;SND.init();
+ if(b.dataset.s!=null){ui.speed=+b.dataset.s;document.querySelectorAll('#speed [data-s]').forEach(x=>x.classList.toggle('on',x===b))}
+ else if(b.id==='mute'){ui.muted=!ui.muted;try{localStorage.setItem('bonsai-muted',ui.muted?'1':'0')}catch(e){}b.textContent=ui.muted?'🔇':'🔊';if(ui.muted)SND.pour(false)}
+ else if(b.id==='reset'){if(!resetArm){resetArm=true;b.textContent='✔?';toast('再按一次 ↺ 才會重新開始，目前的盆栽會消失。');setTimeout(()=>{resetArm=false;b.textContent='↺'},3500);return}resetArm=false;b.textContent='↺';W=newWorld();ui.sel=null;openSheet(false);$('wireBtn').style.display='none';save()}
+});
+function hud(){
+ const d=new Date(2027,0,START_DOY+W.day),e=envFor(W,'balc'),wx=W.wx;
+ $('dateTxt').textContent=(d.getMonth()+1)+'/'+d.getDate()+' '+String(W.h).padStart(2,'0')+':00 · 第'+(W.day+1)+'天';
+ $('wxTxt').textContent=(e.raining?'🌧':wx.rain?'🌥':wx.cloud>.9?'☀️':'⛅')+' '+Math.round(e.Tout)+'°C';
+}
+
+// ---------- 主迴圈 ----------
+let last=performance.now(),acc=0,saveT=0,panelT=0;
+function frame(t){
+ const dt=Math.min((t-last)/1000,.1);last=t;tClock+=dt;
+ if(started&&!document.hidden&&ui.speed>0){
+  acc+=dt*ui.speed;let k=0;
+  while(acc>=1&&k<64){tickHour(W);acc-=1;k++}
+  if(k>=64)acc=0;accFrac=acc;drainOut();
+ }
+ if(ptr.pour&&ptr.down){const sl=slotAt(ptr.wx,ptr.wy);if(sl&&sl.p&&!sl.p.dead)pourOn(sl.p,dt);else{ptr.pouring=false;if(ptr.pourP)endPourLogOnly()}}
+ const tg=camTarget(),k2=Math.min(1,dt*7);cam.cx+=(tg.cx-cam.cx)*k2;cam.cy+=(tg.cy-cam.cy)*k2;cam.z+=(tg.z-cam.z)*k2;
+ drawWorld(dt);
+ hud();
+ panelT+=dt;if(panelT>.6){panelT=0;if(!ptr.down)renderSheet()}
+ saveT+=dt;if(saveT>6&&started){saveT=0;save()}
+ requestAnimationFrame(frame);
+}
+document.addEventListener('visibilitychange',()=>{last=performance.now();if(document.hidden)save()});
+
+// ---------- 啟動 ----------
+(function init(){
+ const saved=load();
+ if(saved){$('newBtn').style.display='';W=saved}else W=newWorld();
+ if(/#bonsai/.test(location.hash||'')&&!W.unlocked)unlockBonsai(W);
+ if(W.unlocked)$('wireBtn').style.display='';
+ const start=()=>{started=true;$('title').style.display='none';SND.init();W.out=[]};
+ $('goBtn').addEventListener('click',start);
+ $('newBtn').addEventListener('click',()=>{W=newWorld();$('wireBtn').style.display='none';start()});
+ $('bonBtn').addEventListener('click',()=>{W=newWorld();unlockBonsai(W);$('wireBtn').style.display='';start()});
+ requestAnimationFrame(frame);
+})();
+</script>
+
+</body></html>
