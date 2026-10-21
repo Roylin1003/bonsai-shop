@@ -1,5 +1,6 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>盆栽小舖</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@900&display=swap" rel="stylesheet">
 <!--
  盆栽小舖 v0.1 原型（單檔 HTML）
  開工三決定
@@ -47,16 +48,21 @@ canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:
 .log em{font-style:normal;color:var(--ink2);margin-right:6px}
 #toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 58px);transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:8px 14px;border-radius:14px;font-size:14px;max-width:86vw;text-align:center;opacity:0;transition:opacity .25s;pointer-events:none;z-index:9}
 #toast.on{opacity:.95}
-#title{position:fixed;inset:0;background:var(--paper);display:flex;align-items:center;justify-content:center;z-index:20}
-#title .card{text-align:center;padding:28px 24px;max-width:340px;width:100%}
-#title h1{margin:0 0 6px;font-size:34px;letter-spacing:4px}
-#title p{margin:4px 0 18px;color:var(--ink2);font-size:15px}
-#title button{display:block;width:100%;margin:8px 0;padding:13px;border-radius:16px;border:2px solid var(--accent);background:var(--btn2);font-size:18px;color:var(--ink)}
-#title button.alt{border-color:var(--line);background:var(--btn);font-size:15px}
-#slots{display:flex;flex-direction:column;gap:8px;margin:6px 0 10px}
-#title .slot{margin:0;text-align:left;padding:10px 14px;font-size:15px;line-height:1.5}
-#title .slot b{display:block;font-size:17px}#title .slot span{display:block;font-size:13px;color:var(--ink2)}
+/* 封面（2026-10-20 封面工程）：不用 zoom；2K 三個存檔卡橫排＋縮圖，手機直式一屏；標題思源宋體 */
+#title{position:fixed;inset:0;background:var(--paper);display:flex;align-items:center;justify-content:center;z-index:20;padding:calc(env(safe-area-inset-top) + 16px) 16px calc(env(safe-area-inset-bottom) + 16px)}
+#title .card{width:min(100%,1320px);text-align:left}
+#title h1{margin:0;font-family:"Noto Serif TC","Noto Serif CJK TC",serif;font-weight:900;font-size:clamp(34px,4.5vw,64px);letter-spacing:.12em;line-height:1.2}
+#title p{margin:6px 0 20px;word-break:keep-all}#title p span{display:inline-block}#title p{color:var(--ink2);font-size:clamp(15px,1.2vw,20px)}
+#title button{display:block;width:100%;margin:0;padding:13px;border-radius:16px;border:2px solid var(--accent);background:var(--btn2);font-size:18px;color:var(--ink);font-family:inherit}
+#title button.alt{border-color:var(--line);background:var(--btn);font-size:clamp(15px,1.1vw,18px);width:auto;padding:12px 22px;margin-top:16px}
+#slots{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+#title .slot{text-align:left;padding:14px;font-size:clamp(14px,1vw,17px);line-height:1.5;display:grid;grid-template-rows:auto auto auto;gap:4px;min-height:100%}
+#title .slot canvas{position:static;inset:auto;height:auto;display:block;width:100%;aspect-ratio:4/3;border-radius:12px;background:rgba(255,255,255,.35)}
+#title .slot b{display:block;font-size:clamp(17px,1.4vw,24px);margin-top:6px}#title .slot span{display:block;color:var(--ink2)}
 #title .slot.empty{border-color:var(--line);background:var(--btn)}
+@media (max-width:640px){#title{align-items:flex-start}#title .card{padding-top:24px}#slots{grid-template-columns:1fr;gap:10px}
+ #title .slot{grid-template-columns:84px 1fr;grid-template-rows:auto auto;padding:10px 12px;column-gap:12px}
+ #title .slot canvas{grid-row:1/3;aspect-ratio:1/1}#title .slot b{margin:0;font-size:17px;white-space:nowrap}#title .slot span{font-size:13px}}
 @media (min-aspect-ratio:5/4){
  #sheet{left:auto;right:10px;top:58px;bottom:10px;width:min(360px,34vw);max-height:none}
 #tray{left:12px;transform:none}
@@ -65,7 +71,7 @@ canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:
 .pill button{min-width:44px;min-height:44px}
 .tool small{font-size:14px}
 @media (max-width:600px){#hud{flex-wrap:wrap}#speed{gap:2px;margin-left:auto}.pill button{min-width:40px;padding:2px}}
-@media (min-width:1400px){#title .card{zoom:1.5}.pill{font-size:22px;padding:8px 16px}.pill button{font-size:26px;min-width:60px;min-height:60px}.tool{width:100px;height:100px;font-size:40px}.tool small{font-size:20px}#sheet{font-size:20px}}
+@media (min-width:1400px){.pill{font-size:22px;padding:8px 16px}.pill button{font-size:26px;min-width:60px;min-height:60px}.tool{width:100px;height:100px;font-size:40px}.tool small{font-size:20px}#sheet{font-size:20px}}
 </style>
 <canvas id="cv"></canvas>
 <div id="hud">
@@ -81,7 +87,7 @@ canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:
 </div>
 <div id="sheet"></div>
 <div id="toast"></div>
-<div id="title"><div class="card"><h1>盆栽小舖</h1><p>看葉子，不看數字。<br>拖水壺、拖盆子，慢慢把它們養活。</p><div id="slots"></div><button id="bonBtn" class="alt">新遊戲（盆景台已解鎖）</button></div></div>
+<div id="title"><div class="card"><h1>盆栽小舖</h1><p><span>看葉子，不看數字。</span> <span>拖水壺、拖盆子，慢慢把它們養活。</span></p><div id="slots"></div><button id="bonBtn" class="alt">新遊戲（盆景台已解鎖）</button></div></div>
 
 <!-- 程式碼 MIT License；美術為程式繪製（CC BY-NC 4.0）。Copyright (c) 2026 Yen-Ting R. Lin (roylin1003). A collaborative project by roylin1003 and Claude. 全部由 AI 協作製作。致謝見 credits.html -->
 <script src="https://beacon.roynexus.com/b.js"></script>
@@ -410,7 +416,7 @@ function save(){try{localStorage.setItem(keyOf(slot),JSON.stringify(W,(k,v)=>k==
 function load(i){try{const s=localStorage.getItem(keyOf(i));if(!s)return null;const w=JSON.parse(s);if(!w||!w.plants)return null;w.out=[];return w}catch(e){return null}}
 
 // ---------- 畫布骨架 ----------
-const cv=$('cv'),ctx=cv.getContext('2d');
+const cv=$('cv');let ctx=cv.getContext('2d'); // let：封面縮圖會暫時把 ctx 換成小畫布
 let LW=720,LH=1280,scale=1,dpr=1;
 function fit(){
  dpr=Math.min(devicePixelRatio||1,2);
@@ -1010,13 +1016,21 @@ document.addEventListener('visibilitychange',()=>{last=performance.now();if(docu
  const enter=(i,w)=>{slot=i;W=w;$('wireBtn').style.display=W.unlocked?'':'none';start()};
  const preview=w=>{const alive=w.plants.filter(p=>!p.dead),d=new Date(2027,0,START_DOY+w.day);
   return '第 '+(w.day+1)+' 天 · '+(d.getMonth()+1)+'/'+d.getDate()+(w.unlocked?' · 盆景台已解鎖':'')+'<br>'+(alive.map(p=>SP[p.sp].name).join('、')||'（沒有活著的植物）')+(w.plants.length>alive.length?'（枯死 '+(w.plants.length-alive.length)+'）':'')};
- const box=$('slots');
+ // 存檔縮圖：借用遊戲本身的 drawPlantSlot，把 ctx／W 暫時換成小畫布與該存檔世界
+ const thumb=(w,cnv)=>{const o=ctx,ow=W,r=cnv.getBoundingClientRect();if(!r.width)return;cnv.width=r.width*2;cnv.height=r.height*2;ctx=cnv.getContext('2d');W=w;
+  try{const ps=w.plants,n=Math.max(1,ps.length),sw=cnv.width/n,S=Math.min(sw/140,cnv.height/250),Y=cnv.height*.9;
+   ctx.fillStyle=THEME.line;ctx.fillRect(0,Y+2*S,cnv.width,cnv.height-Y);
+   ps.forEach((p,i)=>drawPlantSlot(p,sw*(i+.5),Y,{S,baseY:Y},0,1,false))}catch(e){}
+  ctx=o;W=ow};
+ const box=$('slots'),thumbs=[];
  for(let i=0;i<3;i++){
   const w=load(i),b=document.createElement('button');b.className='slot'+(w?'':' empty');
-  b.innerHTML='<b>存檔 '+(i+1)+(w?'':'・空的')+'</b><span>'+(w?preview(w):'點一下開始新遊戲')+'</span>';
+  b.innerHTML='<canvas></canvas><b>存檔 '+(i+1)+(w?'':'・空的')+'</b><span>'+(w?preview(w):'點一下開始新遊戲')+'</span>';
   b.addEventListener('click',()=>{const nw=w||newWorld();if(/#bonsai/.test(location.hash||'')&&!nw.unlocked)unlockBonsai(nw);enter(i,nw)});
-  box.appendChild(b);
+  box.appendChild(b);if(w)thumbs.push([w,b.firstChild]);
  }
+ const drawThumbs=()=>thumbs.forEach(([w,c])=>thumb(w,c));
+ requestAnimationFrame(drawThumbs);addEventListener('resize',()=>{if(!started)drawThumbs()});
  $('bonBtn').addEventListener('click',()=>{let i=[0,1,2].find(k=>!load(k));if(i==null){$('bonBtn').textContent='存檔已滿，請先從一格重新開始（↺）';return}const nw=newWorld();unlockBonsai(nw);enter(i,nw)});
  W=newWorld();
  requestAnimationFrame(frame);
