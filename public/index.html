@@ -96,12 +96,17 @@ canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:
 //<SIM>
 const START_DOY=74;
 const POT=[{n:'小盆',v:.6},{n:'中盆',v:1},{n:'大盆',v:1.7}];
-const SPOT={win:{n:'窗邊',dir:-.9,accl:.55},room:{n:'室內',dir:-.5,accl:.14},bon:{n:'盆景台',dir:-.4,accl:.35},balc:{n:'陽台',dir:0,accl:.8}};
+const SPOT={win:{n:'窗邊',dir:-.9,accl:.55},room:{n:'室內',dir:-.5,accl:.14},bon:{n:'盆景台',dir:-.4,accl:.35},balc:{n:'陽台',dir:0,accl:.8},peak:{n:'山巔',dir:0,accl:1.3,only:'juniper'}};
+// 收藏級（2026-10-23）：小葉榕在盆景台養滿 JUNIPER_DAYS 個好日子→老客人出讓真柏；真柏在盆景台養滿 PEAK_DAYS 個好日子→山巔開放
+const JUNIPER_DAYS=20,PEAK_DAYS=14;
 // 參數皆為「遊戲尺度的假設值」，已在設計指南列出真實依據與待校正處
 const SP={
  pothos:{name:'黃金葛',kind:'foliage',rb:5,Ik:.22,Ihigh:.95,Pmax:.0125,r0:.0017,rn:.25,Tmin:10,Tlo:21,Thi:30,Tmax:38,Tcold:12,wp:.15,fc:.65,drain:.22,wetLim:.55,use:1,LAref:8,rootMax:[2.4,5.5,11],nodeCost:.16,res:.3,cap:2.2,rs:.38},
  echeveria:{name:'石蓮花',kind:'succ',rb:5,Ik:.5,Ihigh:9,Pmax:.0135,r0:.0013,rn:.1,Tmin:3,Tlo:15,Thi:25,Tmax:35,Tcold:2,wp:.1,fc:.42,drain:.45,wetLim:.3,use:.3,LAref:6,rootMax:[1.6,3.6,7.5],nodeCost:.26,res:.3,cap:2,rs:.35},
- ficus:{name:'小葉榕',kind:'bonsai',rb:1.6,Ik:.5,Ihigh:1.1,Pmax:.0125,r0:.0015,rn:.12,Tmin:9,Tlo:21,Thi:31,Tmax:38,Tcold:7,wp:.15,fc:.6,drain:.3,wetLim:.5,use:.85,LAref:14,rootMax:[3.4,3.4,3.4],nodeCost:.16,res:.3,cap:3,rs:.3}
+ ficus:{name:'小葉榕',kind:'bonsai',rb:1.6,Ik:.5,Ihigh:1.1,Pmax:.0125,r0:.0015,rn:.12,Tmin:9,Tlo:21,Thi:31,Tmax:38,Tcold:7,wp:.15,fc:.6,drain:.3,wetLim:.5,use:.85,LAref:14,rootMax:[3.4,3.4,3.4],nodeCost:.16,res:.3,cap:3,rs:.3},
+ // 真柏（Juniperus chinensis 'Shimpaku'）：收藏級老樹。全日照、耐寒、怕濕（赤玉土＋桐生砂速排水）；res 低（儲備薄，一缺碳就掉葉團）、nodeCost 高（剪掉的要很久才補回）
+ // 真實依據（盆栽通識，遊戲尺度假設）：不從光禿老枝回芽（剪到沒葉的枝就死→神枝）、受壓返祖長針葉、冬季低溫＋強光葉轉褐（回暖可逆）、盆土濕又結霜會凍根
+ juniper:{name:'真柏',kind:'bonsai',rb:1.6,Ik:.55,Ihigh:1.5,Pmax:.012,r0:.0014,rn:.12,Tmin:-12,Tlo:12,Thi:32,Tmax:42,Tcold:-2,wp:.12,fc:.5,drain:.6,wetLim:.6,use:.75,LAref:14,rootMax:[3.4,3.4,3.4],nodeCost:.5,res:.1,cap:3,rs:.3,sunTol:.4}
 };
 const clamp=(x,a,b)=>x<a?a:x>b?b:x;
 const smooth=x=>{x=clamp(x,0,1);return x*x*(3-2*x)};
@@ -121,12 +126,13 @@ function envFor(W,spot){
  const raining=wx.rain&&hour>=wx.r0&&hour<wx.r1;
  const sun=sun0*(raining?.25:wx.cloud);
  const Tin=clamp(.5*Tout+11,17,29);
- let par,T,rain=false;
+ let par,T,rain=false,dry=1,frost=false;
  if(spot==='win'){par=.85*sun;T=Tin+3*sun}
  else if(spot==='room'){par=.22*sun+((hour>=18&&hour<23)?.03:0);T=Tin}
  else if(spot==='bon'){par=.95*sun;T=Tin+2*sun}
+ else if(spot==='peak'){par=1.45*sun;T=Tout-6+(raining?0:5*sun)-(sun0>0?0:6);rain=raining;dry=1.5;frost=T<1&&!raining} // 山巔：光最烈、高度低溫（白天曬到跟城市差不多、夜裡低 12°C）、風大乾得快、會結霜
  else{par=1.25*sun;T=Tout+(raining?0:3*sun);rain=raining}
- return {par,T,rain,Tout,raining,sun};
+ return {par,T,rain,Tout,raining,sun,dry,frost};
 }
 function tempF(S,T){
  if(T<=S.Tmin||T>=S.Tmax)return 0;
@@ -146,6 +152,13 @@ function newPlant(W,sp,spot,o){
  }else if(sp==='echeveria'){
   p.leaves=[];for(let i=0;i<9;i++)p.leaves.push({s:.8,y:0,dead:0});
   p.stem=.3;
+ }else if(sp==='juniper'){
+  // 文人木：S 形老幹四段（tr）、兩根舍利神枝（sh：白木，不長葉、不出芽）、少而高的葉團
+  p.root=o.root||2.4;p.w=o.w!=null?o.w:.45;p.juv=0;
+  const tr=n=>Object.assign(n,{tr:1}),sh=n=>Object.assign(n,{sh:1});
+  p.tree=[tr(mkNode(-1,.35,42,42,0,12)),tr(mkNode(0,-.75,42,42,0,9.5)),tr(mkNode(1,.7,36,36,0,7)),tr(mkNode(2,-.55,30,30,0,5)),
+   mkNode(1,1.25,20,20,.95,3.2),mkNode(2,-1.2,18,18,.95,2.8),mkNode(3,.9,14,14,.95,2.4),mkNode(3,-.8,12,12,.95,2.2),mkNode(4,.5,10,10,.95,1.8),mkNode(5,-.5,10,10,.95,1.8),mkNode(4,-.6,9,9,.9,1.6),mkNode(6,.4,8,8,.9,1.5),
+   sh(mkNode(1,-1.5,18,18,0,3.4)),sh(mkNode(0,1.3,15,15,0,3))];
  }else{
   p.root=o.root||1.8;
   p.tree=[mkNode(-1,0,26,26,0,3.4),mkNode(0,-.14,15,20,.8,2.6),mkNode(1,.22,11,18,.8,2),mkNode(0,.95,9,12,.8,1.8),mkNode(2,-.3,7,14,.7,1.5),mkNode(3,.5,6,10,.7,1.4)];
@@ -187,6 +200,18 @@ function cutTree(W,p,c){
  out.forEach(n=>{if(n.par>=0)n.par=map[n.par]});
  const before=p.LA;p.tree=out;const nq=map[q];
  const kids=treeKids(out);
+ if(p.sp==='juniper'){
+  // 真柏不從光禿老枝回芽：剪完之後，子樹裡沒有葉的枝就死，變成神枝（白木）；整株沒葉＝枯死
+  const n=out.length,has=new Array(n).fill(false);
+  for(let i=n-1;i>=0;i--){if(out[i].par>=0&&out[i].lf>0&&!out[i].sh)has[i]=true;if(has[i]&&out[i].par>=0)has[out[i].par]=true}
+  let died=0;for(let i=0;i<n;i++)if(!has[i]&&!out[i].sh){out[i].sh=1;out[i].lf=0;out[i].y=0;died++}
+  p.tree=out;p.LA=calcLA(p);
+  const lost=before>0?(before-p.LA)/before:0;
+  if(lost>.25){p.juv=1;p.shock=Math.max(p.shock,72)}
+  if(!has[0]){p.dead=true;plog(W,p,'剪到一片葉都不剩——真柏不從老枝回芽，整株枯了');W.out.push({k:'dead',id:p.id});return true}
+  plog(W,p,'修剪：剪掉 '+rm.size+' 段枝'+(died?'；剪口以上沒葉的 '+died+' 段枝枯成神枝（真柏不回芽）':'')+(lost>.25?'；剪太重，接下來會長出返祖的針葉':''));
+  return true;
+ }
  if(kids[nq]<3){
   const s=Math.random()<.5?1:-1;
   out.push(mkNode(nq,s*rnd(.55,.9),1.5,rnd(9,13),0,1.2));
@@ -202,7 +227,7 @@ function growTree(p){
  const g=T.filter(n=>n.L<n.T-.01);
  if(g.length){const n=g[Math.floor(Math.random()*g.length)];n.L=Math.min(n.T,n.L+n.T*.38);return}
  const lay=layoutTree(p),kids=treeKids(T);
- const tips=[];for(let i=0;i<T.length;i++)if(!kids[i])tips.push(i);
+ const tips=[];for(let i=0;i<T.length;i++)if(!kids[i]&&!T[i].sh)tips.push(i);
  if(!tips.length)return;
  const ws=tips.map(i=>Math.pow(1+Math.max(0,-lay.y1[i])/60,3));
  let r=Math.random()*ws.reduce((a,b)=>a+b,0),pick=tips[0];
@@ -242,8 +267,9 @@ function stepPlant(W,p){
  p.LA=calcLA(p);
  const fill=clamp(p.root/S.rootMax[p.pot],0,1.3);p.fill=fill;
  if(e.rain)p.w=Math.min(1,p.w+.03);
+ p.frost=e.frost?1:0;
  const lfrac=Math.min(1,p.LA/S.LAref);
- const dem=(e.par*.0042+.0012+.0004*Math.max(0,e.T-12))*S.use*(.35+.65*lfrac)*Math.pow(pot.v,-.5)*(e.raining?.5:1)*.7;
+ const dem=(e.par*.0042+.0012+.0004*Math.max(0,e.T-12))*S.use*(.35+.65*lfrac)*Math.pow(pot.v,-.5)*(e.raining?.5:1)*.7*e.dry;
  p.w=Math.max(S.wp*.55,p.w-dem);
  if(p.w>S.fc){const ex=(p.w-S.fc)*S.drain;p.w-=ex;p.N=Math.max(0,p.N-ex*.25)}
  const a=clamp((p.w-S.wp)/(S.fc-S.wp),0,1.3);
@@ -261,9 +287,10 @@ function stepPlant(W,p){
  // 光適應與曬傷
  if(e.par>.02){if(e.par>p.accl)p.accl+=(e.par-p.accl)*.004;else p.accl=Math.max(.12,p.accl-.0006)}
  const over=e.par-p.accl-.38;
- if(over>0&&e.T>27){p.scar=Math.min(1,p.scar+over*.09*(e.T-25)/8);p.hot=10}else{p.scar=Math.max(0,p.scar-.0004);p.hot=Math.max(0,p.hot-1)}
+ if(over>0&&e.T>27){p.scar=Math.min(1,p.scar+over*.09*(e.T-25)/8*(S.sunTol||1));p.hot=10} // sunTol：全日照樹種（真柏）曬傷慢else{p.scar=Math.max(0,p.scar-.0004);p.hot=Math.max(0,p.hot-1)}
  // 低溫
  if(e.T<S.Tcold)p.cold=Math.min(1,p.cold+(S.Tcold-e.T)*.004);else p.cold=Math.max(0,p.cold-.0005);
+ if(e.frost&&p.w>S.fc)p.cold=Math.min(1,p.cold+.006); // 盆土濕又結霜：水結冰脹傷根（乾土反而安全）
  // 葉綠素（缺氮、爛根、凍傷讓葉色變淡）
  const chT=1-.55*clamp((.18-p.N)/.18,0,1)-.5*p.rot-.6*p.cold;
  p.chlor+=(clamp(chT,.2,1)-p.chlor)*.01;
@@ -298,7 +325,7 @@ function stepPlant(W,p){
  const tf=tempF(S,e.T),gr=tf*waterF*(p.C>0?1:.3);
  if(S.kind==='foliage'){for(const st of p.stems)for(const n of st.nodes)if(n.s<1)n.s=Math.min(1,n.s+.012*gr)}
  else if(S.kind==='succ'){for(const l of p.leaves)if(l.s<1)l.s=Math.min(1,l.s+.01*gr)}
- else{for(const n of p.tree)if(n.par>=0&&n.lf<1)n.lf=Math.min(1,n.lf+(n.lf<.05?.003:.01)*gr)}
+ else{for(const n of p.tree)if(n.par>=0&&n.lf<1&&!n.sh)n.lf=Math.min(1,n.lf+(n.lf<.05?.003:.01)*gr)}
  const yt=clamp(p.rot*1.3+p.cold*1.1+clamp((.15-p.N)/.15,0,1)*.65,0,1.2);
  const L=leafList(p);let ys=0;
  L.forEach((n,i)=>{
@@ -327,19 +354,24 @@ function stepPlant(W,p){
  flag(W,p,'etio',p.etio>.5,p.etio<.25,'徒長：每日累積光量不足，節間拉長');
  flag(W,p,'rb',fill>.92,fill<.75,'根系塞滿盆子（根包盆），生長受限，可換大一號盆');
  flag(W,p,'lowN',p.N<.12,p.N>.3,'養分偏低：老葉開始變黃');
+ flag(W,p,'frost',!!e.frost,!e.frost&&e.T>4,'山巔結霜：夜裡 '+e.T.toFixed(0)+'°C（乾土沒事，濕土結冰會傷根）');
  if(p.cold>=1||p.root<.02){p.dead=true;plog(W,p,p.cold>=1?'凍死':'根系全毀，枯死');W.out.push({k:'dead',id:p.id})}
 }
 function dailyUpdate(W){
  for(const p of W.plants){
   if(p.dead)continue;
   p.goodDays=p.hp>.7?p.goodDays+1:0;
-  if(p.sp==='ficus'){
+  p.bd=(p.spot==='bon'&&p.hp>.7)?(p.bd||0)+1:0; // 在盆景台連續的好日子（解鎖真柏／山巔用）
+  if(p.juv)p.juv*=.97; // 返祖針葉約兩個月慢慢換回鱗葉
+  if(SP[p.sp].kind==='bonsai'){
    const T=p.tree,n=T.length,sub=new Float32Array(n);let wood=0;
    for(let i=n-1;i>=0;i--){sub[i]+=T[i].par>=0?T[i].lf:0;if(T[i].par>=0)sub[T[i].par]+=sub[i];wood+=T[i].th*T[i].L/150}
    p.wood=wood;
    for(let i=0;i<n;i++){const tg=1.2+1.15*Math.sqrt(sub[i]);if(tg>T[i].th)T[i].th+=(tg-T[i].th)*.06}
   }
-  if(!W.unlocked&&p.sp!=='ficus'&&p.goodDays>=10)unlockBonsai(W);
+  if(!W.unlocked&&SP[p.sp].kind!=='bonsai'&&p.goodDays>=10)unlockBonsai(W);
+  if(W.unlocked&&!W.juniper&&p.sp==='ficus'&&p.bd>=JUNIPER_DAYS)unlockJuniper(W);
+  if(W.juniper&&!W.peak&&p.sp==='juniper'&&p.bd>=PEAK_DAYS){W.peak=true;W.out.push({k:'peak'})}
  }
 }
 function unlockBonsai(W){
@@ -347,6 +379,16 @@ function unlockBonsai(W){
  W.unlocked=true;
  W.plants.push(newPlant(W,'ficus','bon',{pot:0,w:.5}));
  W.out.push({k:'unlock'});
+}
+function unlockJuniper(W){
+ if(W.juniper)return;
+ W.juniper=true;
+ const d=W.plants.findIndex(p=>p.dead);
+ let spot=['bon','balc','win','room'].find(k=>!W.plants.some(p=>p.spot===k));
+ if(!spot&&d>=0){spot=W.plants[d].spot;W.plants.splice(d,1)}
+ const p=newPlant(W,'juniper',spot||'bon',{});
+ W.plants.push(p);
+ W.out.push({k:'juniper',spot:p.spot});
 }
 function tickHour(W){
  for(const p of W.plants){
@@ -388,7 +430,9 @@ const THEME={paper:'#f7eedd',ink:'#4b3a30',ink2:'#7a6556',accent:'#e58a5b',leaf:
 for(const k in THEME)document.documentElement.style.setProperty('--'+k,THEME[k]);
 const C={wall:'#f0e2c6',wallN:'#5a5470',wood:'#b98a5e',woodD:'#94693f',woodL:'#d3a878',terra:'#d98b64',cream:'#efe3cf',teal:'#5b8f8a',soilDry:'#cdb38a',soilWet:'#5b3f2d',
  leaf:'#5fae6e',leafD:'#3f8a56',leafY:'#d8c24a',leafDead:'#8a6a3c',var:'#e8d46a',succ:'#8fc3a5',succD:'#6aa58c',blush:'#e98aa0',stem:'#a8b28a',
- bark:'#8a6a4e',barkL:'#a98863',ficus:'#4f9a5b',copper:'#c9784a',face:'#4b3a30',cheek:'#f2a0a0',water:'#7ab8e0',rail:'#8a7a6a',scar:'#9a6a3a'};
+ bark:'#8a6a4e',barkL:'#a98863',ficus:'#4f9a5b',copper:'#c9784a',face:'#4b3a30',cheek:'#f2a0a0',water:'#7ab8e0',rail:'#8a7a6a',scar:'#9a6a3a',
+ // 真柏與山巔
+ jbark:'#6a4a34',juni:'#4f8a74',bronze:'#9a7a48',shari:'#ece6d8',glaze:'#3b4a6b',stand:'#2a1c14',moss:'#5f7f3e',rock:'#4a4650',rockL:'#6a6470',ridge:'#8a8aa8',mist:'#f3eee6'};
 const SKY=[[0,'#1b2545','#2d3b66'],[5,'#2d3b66','#e9a079'],[7,'#8fc7ea','#f5dcb0'],[12,'#7ec3ee','#d7ecf7'],[17,'#8fc0e6','#f7d3a2'],[19,'#4a4a7a','#e58a6a'],[21,'#1f2a4d','#34436e'],[24,'#1b2545','#2d3b66']];
 
 // ---------- 工具 ----------
@@ -399,7 +443,7 @@ function mixRGB(a,b,t){const f=s=>s[0]==='#'?hex(s):s.match(/\d+/g).map(Number);
 function skyAt(h){for(let i=0;i<SKY.length-1;i++){const a=SKY[i],b=SKY[i+1];if(h>=a[0]&&h<=b[0]){const t=(h-a[0])/(b[0]-a[0]);return[mix(a[1],b[1],t),mix(a[2],b[2],t)]}}return[SKY[0][1],SKY[0][2]]}
 const hash=(a,b)=>{let h=(a*374761393+b*668265263)|0;h=(h^(h>>>13))*1274126177|0;return((h^(h>>>16))>>>0)/4294967295};
 function rr(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath()}
-const spotKeys=()=>W.unlocked?['win','room','bon','balc']:['win','room','balc'];
+const spotKeys=()=>{const k=W.unlocked?['win','room','bon','balc']:['win','room','balc'];if(W.peak)k.push('peak');return k};
 const plantById=id=>W.plants.find(p=>p.id===id);
 const plantAt=sp=>W.plants.find(p=>p.spot===sp);
 
@@ -452,31 +496,35 @@ const SND={ctx:null,noise:null,gain:null,init(){try{if(!this.ctx)this.ctx=new(wi
 
 // ---------- 提示 ----------
 let toastT=0;
-function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),2600)}
+function toast(m,ms){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),ms||2600)}
 function drainOut(){
  while(W.out.length){
   const o=W.out.shift();
   if(o.k==='unlock'){toast('鄰居送了一株小葉榕苗，放在新的「盆景台」。蟠紮工具解鎖。');$('wireBtn').style.display='';SND.tone(660,.3,.08);SND.tone(880,.4,.06)}
+  if(o.k==='juniper'){toast('老客人出讓了一株老真柏——抵小舖好幾個月的營收，放在「'+SPOT[o.spot].n+'」。剪錯一刀、澆錯一次水都看得見。在盆景台養滿 '+PEAK_DAYS+' 個好日子，山巔就開。',6000);SND.tone(520,.3,.08);SND.tone(780,.5,.06)}
+  if(o.k==='peak'){toast('山巔開放了。只有真柏上得去：光最烈、夜最冷、會淋雨會結霜。把它拖上去。',6000);SND.tone(660,.3,.08);SND.tone(990,.5,.06)}
   if(o.k==='dead'){toast('有一盆枯死了。點開看日誌，找出是哪個變數出的事。')}
  }
 }
 
 // ---------- 繪製：房間 ----------
 function drawRoom(m,hf,dl,raining){
- const X0=-LW,X1=LW*2,Y0=-LH,Y1=LH*2,sw=m.slotW,S=m.S,by=m.baseY,bx=LW-sw;
+ const X0=-LW,X1=LW*2,Y0=-LH,Y1=LH*2,sw=m.slotW,S=m.S,by=m.baseY,nOut=W.peak?2:1,bx=LW-sw*nOut,bR=W.peak?bx+sw:X1;
  ctx.fillStyle=mix(C.wallN,C.wall,dl);ctx.fillRect(X0,Y0,bx-X0,Y1-Y0);
  // 牆面條紋
  ctx.fillStyle='rgba(255,255,255,.07)';for(let x=X0;x<bx;x+=64)ctx.fillRect(x,Y0,28,Y1-Y0);
- // 陽台天空
+ // 陽台天空（山巔開放後延伸到最右格）
  const[skyT,skyB]=skyAt(hf);
  let g=ctx.createLinearGradient(0,Y0,0,by);g.addColorStop(0,skyT);g.addColorStop(1,skyB);
  ctx.fillStyle=g;ctx.fillRect(bx,Y0,X1-bx,by-Y0);
- // 遠方城市
+ // 遠方城市（只在陽台那格後面）
+ ctx.save();ctx.beginPath();ctx.rect(bx,Y0,bR-bx,by-Y0);ctx.clip();
  ctx.fillStyle=mix(skyB,'#7a6a8a',.45);
  for(let i=0;i<7;i++){const h=60+hash(i,3)*150,w=34+hash(i,5)*30;ctx.fillRect(bx+i*(sw/5.5)-10,by-30*S-h,w,h+30*S)}
+ ctx.restore();
  // 陽台欄杆
- ctx.strokeStyle=C.rail;ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(bx,by-58*S);ctx.lineTo(X1,by-58*S);ctx.stroke();
- ctx.lineWidth=3;for(let x=bx+10;x<X1;x+=26){ctx.beginPath();ctx.moveTo(x,by-58*S);ctx.lineTo(x,by);ctx.stroke()}
+ ctx.strokeStyle=C.rail;ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(bx,by-58*S);ctx.lineTo(bR,by-58*S);ctx.stroke();
+ ctx.lineWidth=3;for(let x=bx+10;x<bR;x+=26){ctx.beginPath();ctx.moveTo(x,by-58*S);ctx.lineTo(x,by);ctx.stroke()}
  // 窗
  const fx0=sw*.08,fw=sw*.84,fy0=Math.max(50,by-470*S),fh=by-30-fy0;
  g=ctx.createLinearGradient(0,fy0,0,fy0+fh);g.addColorStop(0,skyT);g.addColorStop(1,skyB);
@@ -495,7 +543,7 @@ function drawRoom(m,hf,dl,raining){
  // 室內牆上掛畫
  if(m.n>1){const px=slotX(1,m.n);ctx.fillStyle=C.woodL;rr(ctx,px-44,by-400*S,88,66,6);ctx.fill();ctx.fillStyle=mixRGB(C.wall,'#c9a77a',.4);ctx.fillRect(px-37,by-393*S,74,52);ctx.fillStyle=C.leaf;ctx.beginPath();ctx.arc(px,by-367*S,10,0,6.29);ctx.fill()}
  // 掛鐘（跟著遊戲時間走）
- {const cx=LW-sw*1.5-(m.n>3?0:sw*.5),cy=by-380*S,R=34;
+ {const cx=slotX(m.n-nOut-1,m.n),cy=by-380*S,R=34;
   ctx.fillStyle=C.woodL;ctx.beginPath();ctx.arc(cx,cy,R+6,0,6.29);ctx.fill();
   ctx.fillStyle='#fff8ea';ctx.beginPath();ctx.arc(cx,cy,R,0,6.29);ctx.fill();
   ctx.strokeStyle=THEME.ink2;ctx.lineWidth=2;for(let i=0;i<12;i++){const a=i*Math.PI/6;ctx.beginPath();ctx.moveTo(cx+Math.sin(a)*(R-7),cy-Math.cos(a)*(R-7));ctx.lineTo(cx+Math.sin(a)*(R-2),cy-Math.cos(a)*(R-2));ctx.stroke()}
@@ -509,8 +557,31 @@ function drawRoom(m,hf,dl,raining){
  // 層板
  ctx.fillStyle=C.wood;ctx.fillRect(X0,by,X1-X0,22*S);ctx.fillStyle=C.woodD;ctx.fillRect(X0,by+22*S,X1-X0,6*S);
  ctx.fillStyle=C.woodL;ctx.fillRect(X0,by,X1-X0,4*S);
- ctx.font='600 '+Math.round(17)+'px ui-rounded,"Noto Sans TC",sans-serif';ctx.textAlign='center';ctx.fillStyle=THEME.ink2;
- m.sp.forEach((k,i)=>ctx.fillText(SPOT[k].n,slotX(i,m.n),by+22*S+26));
+ if(W.peak)drawPeak(m,hf,dl,raining,skyB);
+ ctx.font='600 '+Math.round(17)+'px ui-rounded,"Noto Sans TC",sans-serif';ctx.textAlign='center';
+ m.sp.forEach((k,i)=>{if(k==='peak'){ctx.strokeStyle=C.rock;ctx.lineWidth=4;ctx.lineJoin='round';ctx.strokeText(SPOT[k].n,slotX(i,m.n),by+22*S+26)}ctx.fillStyle=k==='peak'?C.mist:THEME.ink2;ctx.fillText(SPOT[k].n,slotX(i,m.n),by+22*S+26)});
+}
+// 山巔：最右那格換成峰頂與雲海（畫法借晨帖的 peak()，程式各自獨立）。太陽直射、遠峰出雲、崖壁沒入雲海、霧飄過几腳
+function drawPeak(m,hf,dl,raining,skyB){
+ const X1=LW*2,Y1=LH*2,sw=m.slotW,S=m.S,by=m.baseY,x0=LW-sw,cx=x0+sw*.5;
+ // 太陽／月亮直接掛在峰頂上空——這裡沒有窗，光最烈
+ if(hf>=6&&hf<=18){const t=(hf-6)/12,sx=x0+sw*(.15+.7*t),sy=by-S*(150+140*Math.sin(Math.PI*t));
+  let g=ctx.createRadialGradient(sx,sy,0,sx,sy,sw*.9);g.addColorStop(0,'rgba(255,244,200,'+(.5*dl)+')');g.addColorStop(1,'rgba(255,244,200,0)');ctx.fillStyle=g;ctx.fillRect(x0-sw,by-600*S,sw*3,600*S);
+  ctx.fillStyle='#fff3b8';ctx.beginPath();ctx.arc(sx,sy,30,0,6.29);ctx.fill()}
+ else{const t=((hf+6)%24)/12,sx=x0+sw*(.15+.7*t),sy=by-S*(150+130*Math.sin(Math.PI*t));ctx.fillStyle='#f4f0d8';ctx.beginPath();ctx.arc(sx,sy,20,0,6.29);ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.75)';for(let i=0;i<14;i++)ctx.fillRect(x0+hash(i,21)*sw*1.6-sw*.3,by-S*(140+hash(i,22)*420),2.4,2.4)}
+ // 遠峰：從雲海裡冒出來
+ ctx.fillStyle=mixRGB(skyB,C.ridge,.55);
+ for(let i=0;i<5;i++){const px=x0+(i*.38-.3)*sw+hash(i,31)*sw*.2,h=S*(90+hash(i,32)*110),w=sw*(.22+hash(i,33)*.2);ctx.beginPath();ctx.moveTo(px-w,by+40*S);ctx.lineTo(px,by+40*S-h);ctx.lineTo(px+w,by+40*S);ctx.closePath();ctx.fill()}
+ // 崖壁與峰頂平台：平台在層板高度，兩側崖壁沒入雲海
+ ctx.fillStyle=C.rock;ctx.beginPath();ctx.moveTo(x0-sw*.2,Y1);ctx.lineTo(x0-sw*.05,by+70*S);ctx.lineTo(x0+sw*.1,by+8*S);ctx.lineTo(x0+sw*.18,by-2*S);ctx.lineTo(x0+sw*.82,by-2*S);ctx.lineTo(x0+sw*.9,by+10*S);ctx.lineTo(x0+sw*1.08,by+90*S);ctx.lineTo(X1,Y1);ctx.closePath();ctx.fill();
+ ctx.fillStyle=C.rockL;ctx.beginPath();ctx.moveTo(x0+sw*.18,by-2*S);ctx.lineTo(x0+sw*.82,by-2*S);ctx.lineTo(x0+sw*.78,by+40*S);ctx.lineTo(x0+sw*.12,by+34*S);ctx.closePath();ctx.fill();
+ // 雲海：三層霧帶慢慢飄，最上層輕輕掠過平台邊
+ for(let i=0;i<3;i++){const y=by+(30+i*48)*S,a=.45+i*.18,v=(6+i*5);ctx.fillStyle='rgba(243,238,230,'+a+')';
+  for(let k=0;k<6;k++){const w=sw*(.3+hash(k,40+i)*.3),cxk=x0-sw*.3+((hash(k,50+i)*sw*1.8+tClock*v)%(sw*1.9));ctx.beginPath();ctx.ellipse(cxk,y,w,18*S+i*6*S,0,0,6.29);ctx.ellipse(cxk+w*.5,y-8*S,w*.6,14*S,0,0,6.29);ctx.fill()}}
+ ctx.fillStyle='rgba(243,238,230,.55)';ctx.fillRect(x0-sw*.3,by+80*S,sw*1.6,Y1);
+ // 霜：夜裡冷到結霜，平台泛白
+ const e=envFor(W,'peak');if(e.frost){ctx.fillStyle='rgba(235,245,255,.35)';ctx.fillRect(x0+sw*.12,by-2*S,sw*.7,26*S)}
 }
 
 // ---------- 繪製：臉 ----------
@@ -551,9 +622,12 @@ function drawFace(c,x,y,s,md,asleep){
 }
 
 // ---------- 繪製：盆 ----------
-function potDims(p,S){return p.sp==='ficus'?{w:150*S,h:50*S}:(()=>{const k=[.8,1,1.25][p.pot];return{w:120*k*S,h:92*k*S}})()}
+function potDims(p,S){return p.sp==='ficus'?{w:150*S,h:50*S}:p.sp==='juniper'?{w:118*S,h:64*S}:(()=>{const k=[.8,1,1.25][p.pot];return{w:120*k*S,h:92*k*S}})()}
 function drawPot(c,p,X,Y,S,md,asleep,dt){
- const d=potDims(p,S),col=p.sp==='pothos'?C.terra:p.sp==='echeveria'?C.cream:C.teal;
+ const d=potDims(p,S),col=p.sp==='pothos'?C.terra:p.sp==='echeveria'?C.cream:p.sp==='juniper'?C.glaze:C.teal;
+ if(p.sp==='juniper'){ // 木几：收藏級的盆不直接放層板
+  c.fillStyle=C.stand;rr(c,X-d.w*.72,Y+2*S,d.w*1.44,10*S,3*S);c.fill();c.fillStyle='#3a2a1e';c.fillRect(X-d.w*.62,Y+12*S,8*S,10*S);c.fillRect(X+d.w*.62-8*S,Y+12*S,8*S,10*S);
+  c.fillStyle='rgba(255,255,255,.08)';c.fillRect(X-d.w*.72,Y+2*S,d.w*1.44,2*S)}
  // 根從排水孔鑽出來
  if(p.fill>.88){c.strokeStyle='#f3ead6';c.lineWidth=2.2*S;c.lineCap='round';for(let i=-1;i<=1;i++){c.beginPath();c.moveTo(X+i*d.w*.1,Y-3*S);c.quadraticCurveTo(X+i*d.w*.16,Y+8*S,X+i*d.w*.12+Math.sin(tClock+i)*2,Y+14*S);c.stroke()}}
  // 托盤
@@ -565,7 +639,11 @@ function drawPot(c,p,X,Y,S,md,asleep,dt){
  c.fillStyle=mix(col,'#000000',.12);rr(c,X-tw/2-3*S,Y-d.h-8*S,tw+6*S,12*S,5*S);c.fill();
  // 土
  c.fillStyle=mixRGB(C.soilDry,C.soilWet,clamp((p.w-.1)/.8,0,1));c.beginPath();c.ellipse(X,Y-d.h-2*S,tw*.45,6*S,0,0,6.29);c.fill();
- drawFace(c,X,Y-d.h*.5,S*(p.sp==='ficus'?.9:1),md,asleep);
+ if(p.sp==='juniper'){ // 苔：濕的時候翠綠，乾了發黃；結霜時泛白
+  c.fillStyle=mixRGB('#a8a060',C.moss,clamp((p.w-.15)/.4,0,1));for(let i=0;i<7;i++){c.beginPath();c.arc(X+(hash(i,61)-.5)*tw*.8,Y-d.h-3*S-hash(i,62)*4*S,(4+hash(i,63)*5)*S,0,6.29);c.fill()}
+  if(p.frost){c.fillStyle='rgba(235,245,255,.6)';c.beginPath();c.ellipse(X,Y-d.h-4*S,tw*.42,5*S,0,0,6.29);c.fill()}
+  c.fillStyle='rgba(255,255,255,.22)';c.fillRect(X-tw/2-3*S,Y-d.h-8*S,tw+6*S,3*S)} // 釉盆口沿高光
+ drawFace(c,X,Y-d.h*.5,S*(SP[p.sp].kind==='bonsai'?.9:1),md,asleep);
  // 排水滴
  if(p.w>SP[p.sp].fc+.03&&Math.random()<dt*10)fx.push({k:'drop',x:X+d.w*.2,y:Y,vx:0,vy:20,life:.8,t:0});
 }
@@ -634,33 +712,47 @@ function drawSucc(c,p,X,Y,S,pt){
  c.fillStyle=mix(C.succ,'#ffffff',.4);c.beginPath();c.arc(cx,cy-3*S,5*S,0,6.29);c.fill();
 }
 function drawTree(c,p,X,Y,S,pt){
- const T=p.tree,lay=layoutTree(p);
+ const T=p.tree,lay=layoutTree(p),jn=p.sp==='juniper',bark=jn?C.jbark:C.bark;
  p._org={x:X,y:Y,S};
  // 根盤
- c.fillStyle=C.bark;c.beginPath();const b0=pt(0,0);c.moveTo(b0[0]-T[0].th*S*1.5,b0[1]+2*S);c.quadraticCurveTo(b0[0]-T[0].th*S*.6,b0[1]-6*S,b0[0]-T[0].th*S*.5,b0[1]-12*S);c.lineTo(b0[0]+T[0].th*S*.5,b0[1]-12*S);c.quadraticCurveTo(b0[0]+T[0].th*S*.6,b0[1]-6*S,b0[0]+T[0].th*S*1.5,b0[1]+2*S);c.closePath();c.fill();
+ c.fillStyle=bark;c.beginPath();const b0=pt(0,0);c.moveTo(b0[0]-T[0].th*S*1.5,b0[1]+2*S);c.quadraticCurveTo(b0[0]-T[0].th*S*.6,b0[1]-6*S,b0[0]-T[0].th*S*.5,b0[1]-12*S);c.lineTo(b0[0]+T[0].th*S*.5,b0[1]-12*S);c.quadraticCurveTo(b0[0]+T[0].th*S*.6,b0[1]-6*S,b0[0]+T[0].th*S*1.5,b0[1]+2*S);c.closePath();c.fill();
  c.lineCap='round';
  for(let i=0;i<T.length;i++){
-  const a=pt(lay.x0[i]*S,lay.y0[i]*S),b=pt(lay.x1[i]*S,lay.y1[i]*S);
-  c.strokeStyle=mix(C.bark,C.barkL,Math.min(1,i/60));c.lineWidth=Math.max(1.6,T[i].th*S);
-  c.beginPath();c.moveTo(a[0],a[1]);c.lineTo(b[0],b[1]);c.stroke();
+  const a=pt(lay.x0[i]*S,lay.y0[i]*S),b=pt(lay.x1[i]*S,lay.y1[i]*S),lw=Math.max(1.6,T[i].th*S);
+  if(T[i].sh){ // 舍利／神枝：白木（石灰硫黃漂過），帶一道灰邊
+   c.strokeStyle='rgba(110,100,90,.6)';c.lineWidth=lw+1.5;c.beginPath();c.moveTo(a[0],a[1]);c.lineTo(b[0],b[1]);c.stroke();
+   c.strokeStyle=C.shari;c.lineWidth=lw;c.beginPath();c.moveTo(a[0],a[1]);c.lineTo(b[0],b[1]);c.stroke();
+  }else{
+   c.strokeStyle=mix(bark,C.barkL,Math.min(1,i/60));c.lineWidth=lw;
+   c.beginPath();c.moveTo(a[0],a[1]);c.lineTo(b[0],b[1]);c.stroke();
+   if(T[i].tr){ // 老幹上的舍利：一條白木沿幹而上，旁邊留活的水線
+    const o=lw*.26;c.strokeStyle=C.shari;c.lineWidth=lw*.4;c.beginPath();c.moveTo(a[0]+o,a[1]);c.lineTo(b[0]+o,b[1]);c.stroke()}
+  }
   if(T[i].w){c.strokeStyle=C.copper;c.lineWidth=Math.max(1.6,2*S);c.setLineDash([3*S,3*S]);c.beginPath();c.moveTo(a[0],a[1]);c.lineTo(b[0],b[1]);c.stroke();c.setLineDash([])}
-  if(T[i].sc){c.strokeStyle=C.scar;c.lineWidth=Math.max(1.6,T[i].th*S)+1.5;c.setLineDash([2*S,5*S]);c.beginPath();c.moveTo(a[0],a[1]);c.lineTo(b[0],b[1]);c.stroke();c.setLineDash([])}
+  if(T[i].sc){c.strokeStyle=C.scar;c.lineWidth=lw+1.5;c.setLineDash([2*S,5*S]);c.beginPath();c.moveTo(a[0],a[1]);c.lineTo(b[0],b[1]);c.stroke();c.setLineDash([])}
   hits.push({pid:p.id,kind:'fnode',ni:i,x:b[0],y:b[1],r:Math.max(10,14*S)});
  }
  const droop=1-p.turgor;
+ // 真柏：低溫＋強光葉轉褐（可逆）、曬傷轉褐、受壓返祖針葉、結霜泛白
+ const bronze=jn?clamp((8-(p.lastT==null?20:p.lastT))/12,0,1)*.6+p.scar*.5:0,juv=jn?(p.juv||0):0;
  for(let i=0;i<T.length;i++){
-  const n=T[i];if(n.par<0||n.lf<.04)continue;
-  const b=pt(lay.x1[i]*S,lay.y1[i]*S),sz=9*S*n.lf+1.5*S;
-  const col=mixRGB(mix(C.ficus,C.leafD,.2*hash(i,2)),C.leafY,n.y);
-  for(let k=0;k<4;k++){
-   const ang=-Math.PI/2+(k-1.5)*.9+(hash(i,k)-.5)*.6+droop*1.1*(k<2?-1:1);
-   const lx=b[0]+Math.cos(ang)*sz*.6,ly=b[1]+Math.sin(ang)*sz*.6;
-   c.fillStyle=k%2?col:mixRGB(col,'#ffffff',.08);c.beginPath();c.ellipse(lx,ly,sz*.55,sz*.32,ang,0,6.29);c.fill();
+  const n=T[i];if(n.par<0||n.lf<.04||n.sh)continue;
+  const b=pt(lay.x1[i]*S,lay.y1[i]*S),sz=(jn?14:9)*S*n.lf+1.5*S;
+  let col=mixRGB(mix(jn?C.juni:C.ficus,C.leafD,.2*hash(i,2)),C.leafY,n.y);
+  if(bronze>0)col=mixRGB(col,C.bronze,bronze);
+  const nk=jn?9:4; // 真柏：鱗葉擠成一團扁平的葉雲
+  for(let k=0;k<nk;k++){
+   const ang=-Math.PI/2+(k-(nk-1)/2)*(jn?.42:.9)+(hash(i,k)-.5)*.6+droop*1.1*(k<nk/2?-1:1);
+   const lx=b[0]+Math.cos(ang)*sz*(jn?.75:.6),ly=b[1]+Math.sin(ang)*sz*(jn?.35:.6);
+   c.fillStyle=k%2?col:mixRGB(col,'#ffffff',.08);c.beginPath();c.ellipse(lx,ly,sz*(jn?.42:.55),sz*(jn?.22:.32),jn?ang*.3:ang,0,6.29);c.fill();
   }
+  if(juv>.3&&hash(i,7)<juv){c.strokeStyle=mixRGB(col,'#ffffff',.25);c.lineWidth=1;for(let k=0;k<7;k++){const ang=-Math.PI/2+(hash(i,k+10)-.5)*2.4;c.beginPath();c.moveTo(b[0],b[1]);c.lineTo(b[0]+Math.cos(ang)*sz*1.1,b[1]+Math.sin(ang)*sz*1.1);c.stroke()}}
+  if(p.frost){c.fillStyle='rgba(235,245,255,.55)';c.beginPath();c.ellipse(b[0],b[1]-sz*.3,sz*.7,sz*.25,0,0,6.29);c.fill()}
  }
 }
 function drawPlantSlot(p,X,Y,m,dt,alpha,lifted){
  const S=m.S,d=potDims(p,S),md=mood(p),asleep=W.h>=22||W.h<5;
+ if(p.sp==='juniper')Y-=12*S; // 盆架在木几上
  ctx.save();ctx.globalAlpha=alpha;
  if(lifted){ctx.fillStyle='rgba(0,0,0,.18)';ctx.beginPath();ctx.ellipse(X,m.baseY,d.w*.5,8*S,0,0,6.29);ctx.fill()}
  drawPot(ctx,p,X,Y,S,md,asleep,dt);
@@ -721,7 +813,7 @@ function drawWorld(dt){
  });
  if(ptr.dr&&ptr.dr.moved){const p=ptr.dr.p;drawPlantSlot(p,ptr.wx,ptr.wy+40*m.S,m,dt,1,true)}
  // 陽台下雨：打在盆上
- if(raining)for(const sk of m.sp)if(sk==='balc'&&Math.random()<dt*14){const i=m.sp.indexOf(sk);fx.push({k:'drop',x:slotX(i,m.n)+(Math.random()-.5)*m.slotW*.5,y:m.baseY-200*m.S,vx:-20,vy:200,life:.5,t:0})}
+ if(raining)for(const sk of m.sp)if((sk==='balc'||sk==='peak')&&Math.random()<dt*14){const i=m.sp.indexOf(sk);fx.push({k:'drop',x:slotX(i,m.n)+(Math.random()-.5)*m.slotW*.5,y:m.baseY-200*m.S,vx:-20,vy:200,life:.5,t:0})}
  drawFx(dt);
  drawGhost(m);
  // 夜色
@@ -793,6 +885,7 @@ function dropPot(){
  const m=metrics(),p=ptr.dr.p,i=clamp(Math.floor(ptr.wx/m.slotW),0,m.n-1),sk=m.sp[i];
  if(sk===p.spot)return;
  const other=plantAt(sk),old=p.spot;
+ if((SPOT[sk].only&&p.sp!==SPOT[sk].only)||(other&&SPOT[old].only&&other.sp!==SPOT[old].only)){toast('山巔只放得下真柏。');return}
  p.spot=sk;plog(W,p,'搬到「'+SPOT[sk].n+'」');
  if(other){other.spot=old;plog(W,other,'被換到「'+SPOT[old].n+'」')}
  SND.tone(330,.12,.05);
@@ -861,7 +954,7 @@ function cutTarget(h){
 }
 function startWire(){
  const p=ui.sel!=null?plantById(ui.sel):null;
- if(!p||p.sp!=='ficus'){toast('先點選小葉榕，再用蟠紮。');return}
+ if(!p||SP[p.sp].kind!=='bonsai'){toast('先點選盆景樹，再用蟠紮。');return}
  const h=nearestHit(ptr.wx,ptr.wy,40,true);if(!h||h.kind!=='fnode')return;
  const n=p.tree[h.ni];if(h.ni===0)return;
  ptr.wire={p,ni:h.ni,a0:n.a,had:!!n.w,moved:false};
@@ -906,6 +999,12 @@ function observe(p){
  if(Math.abs(p.lean)>.4)o.push('整株往光的方向歪');
  if(p.fill>.9)o.push('根從排水孔鑽出來了');
  if(p.shock>0)o.push('剛動過根或剪過，暫時停長');
+ if(p.sp==='juniper'){
+  if(p.frost)o.push('葉團與苔上結了一層霜');
+  if((p.lastT!=null?p.lastT:20)<6)o.push('葉色轉褐（冬天的真柏會這樣，回暖就轉綠）');
+  if((p.juv||0)>.3)o.push('長出返祖的針葉（剪太重的訊號）');
+  if(p.tree.some(n=>n.sh&&!n.tr))o.push('有白色的神枝');
+ }
  if(!o.length)o.push('看起來精神飽滿');
  return o;
 }
@@ -929,12 +1028,12 @@ function renderSheet(force){
   if(p.dead)h+='<button class="act" data-act="replant">🌱 重新栽種</button>';
   else{if(S.kind!=='bonsai')h+='<button class="act" data-act="rotate">↻ 轉盆</button>'}
   h+='</div>';
-  if(S.kind==='bonsai'&&!p.dead){
+  if(S.kind==='bonsai'&&!p.dead&&p.sp!=='juniper'){
    const b=bonsaiScore(p);
    h+='<div style="margin-top:8px"><b>樹形分 '+Math.round(b.total)+'</b> <span class="note">（直幹式：三角樹冠）</span></div>';
    h+=meter('進入樹冠輪廓',b.fit,1,THEME.leaf,pct(b.fit)+'%')+meter('枝梢密度',b.dens,1,THEME.leaf,b.tips+' 個枝梢')+meter('左右平衡',b.bal,1,THEME.leaf,pct(b.bal)+'%')+meter('細緻度（節間短）',b.fine,1,THEME.leaf,pct(b.fine)+'%')+meter('收尖（基部粗、梢細）',b.taper,1,THEME.leaf,pct(b.taper)+'%');
   }
-  h+='<div class="note" style="margin-top:8px">'+(S.kind==='bonsai'?'剪刀點枝條末端剪枝；蟠紮工具拖枝條彎折，再點一次拆線。':S.kind==='succ'?'石蓮花耐旱怕濕，光不夠會徒長。':'黃金葛耐陰，但土太久不乾會爛根。')+'</div>';
+  h+='<div class="note" style="margin-top:8px">'+(p.sp==='juniper'?'文人木：看葉團，不看分數。真柏不從光禿的老枝回芽——剪到沒葉的枝就死成神枝；喜全日照、怕濕；要上山巔先在陽台適應強光。':S.kind==='bonsai'?'剪刀點枝條末端剪枝；蟠紮工具拖枝條彎折，再點一次拆線。':S.kind==='succ'?'石蓮花耐旱怕濕，光不夠會徒長。':'黃金葛耐陰，但土太久不乾會爛根。')+'</div>';
  }else if(ui.tab==='d'){
   h+=meter('土壤水分',p.w,1,THEME.water,pct(p.w)+'%',[S.wp,S.fc]);
   h+='<div class="note">刻度：萎凋點 '+pct(S.wp)+'% ／ 田間容水量 '+pct(S.fc)+'%</div>';
@@ -975,7 +1074,7 @@ $('sheet').addEventListener('click',e=>{
  if(a==='close')deselect();
  else if(a.startsWith('tab:')){ui.tab=a.slice(4);renderSheet(true)}
  else if(a==='rotate'&&p){p.lean=-p.lean*.9;plog(W,p,'轉盆 180°（向光彎曲的方向會反過來，之後慢慢彎回去）');toast('轉盆了。它會慢慢重新向光彎。');renderSheet(true)}
- else if(a==='replant'&&p){const np=newPlant(W,p.sp,p.spot,{pot:p.sp==='ficus'?0:0,w:.45});W.plants[W.plants.indexOf(p)]=np;ui.sel=np.id;renderSheet(true)}
+ else if(a==='replant'&&p){const np=newPlant(W,p.sp,p.spot,{pot:0,w:.45});if(p.sp==='juniper')plog(W,np,'又用小舖好幾個月的營收換了一株老真柏');W.plants[W.plants.indexOf(p)]=np;ui.sel=np.id;renderSheet(true)}
 });
 // 速度鈕
 let resetArm=false;
@@ -1015,7 +1114,7 @@ document.addEventListener('visibilitychange',()=>{last=performance.now();if(docu
  const start=()=>{started=true;$('title').style.display='none';SND.init();W.out=[]};
  const enter=(i,w)=>{slot=i;W=w;$('wireBtn').style.display=W.unlocked?'':'none';start()};
  const preview=w=>{const alive=w.plants.filter(p=>!p.dead),d=new Date(2027,0,START_DOY+w.day);
-  return '第 '+(w.day+1)+' 天 · '+(d.getMonth()+1)+'/'+d.getDate()+(w.unlocked?' · 盆景台已解鎖':'')+'<br>'+(alive.map(p=>SP[p.sp].name).join('、')||'（沒有活著的植物）')+(w.plants.length>alive.length?'（枯死 '+(w.plants.length-alive.length)+'）':'')};
+  return '第 '+(w.day+1)+' 天 · '+(d.getMonth()+1)+'/'+d.getDate()+(w.peak?' · 山巔已開':w.unlocked?' · 盆景台已解鎖':'')+'<br>'+(alive.map(p=>SP[p.sp].name).join('、')||'（沒有活著的植物）')+(w.plants.length>alive.length?'（枯死 '+(w.plants.length-alive.length)+'）':'')};
  // 存檔縮圖：借用遊戲本身的 drawPlantSlot，把 ctx／W 暫時換成小畫布與該存檔世界
  const thumb=(w,cnv)=>{const o=ctx,ow=W,r=cnv.getBoundingClientRect();if(!r.width)return;cnv.width=r.width*2;cnv.height=r.height*2;ctx=cnv.getContext('2d');W=w;
   try{const ps=w.plants,n=Math.max(1,ps.length),sw=cnv.width/n,S=Math.min(sw/140,cnv.height/250),Y=cnv.height*.9;
@@ -1026,7 +1125,7 @@ document.addEventListener('visibilitychange',()=>{last=performance.now();if(docu
  for(let i=0;i<3;i++){
   const w=load(i),b=document.createElement('button');b.className='slot'+(w?'':' empty');
   b.innerHTML='<canvas></canvas><b>存檔 '+(i+1)+(w?'':'・空的')+'</b><span>'+(w?preview(w):'點一下開始新遊戲')+'</span>';
-  b.addEventListener('click',()=>{const nw=w||newWorld();if(/#bonsai/.test(location.hash||'')&&!nw.unlocked)unlockBonsai(nw);enter(i,nw)});
+  b.addEventListener('click',()=>{const nw=w||newWorld();if(/#(bonsai|peak)/.test(location.hash||'')&&!nw.unlocked)unlockBonsai(nw);if(/#peak/.test(location.hash||'')){unlockJuniper(nw);nw.peak=true}enter(i,nw)});
   box.appendChild(b);if(w)thumbs.push([w,b.firstChild]);
  }
  const drawThumbs=()=>thumbs.forEach(([w,c])=>thumb(w,c));
