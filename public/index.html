@@ -1,6 +1,6 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>盆栽小舖</title>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@500;900&display=swap" rel="stylesheet">
 <!--
  盆栽小舖 v0.1 原型（單檔 HTML）
  開工三決定
@@ -22,9 +22,12 @@ canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:
 .pill button{border:0;background:transparent;font-size:clamp(16px,4.4vw,20px);padding:2px 5px;border-radius:10px;color:var(--ink);min-width:32px;min-height:32px}
 .pill button.on{background:var(--btn2)}
 #tray{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 8px);display:flex;gap:8px;padding:8px;background:var(--card);border:1.5px solid var(--line);border-radius:22px;box-shadow:0 3px 0 var(--shadow);z-index:5}
-.tool{width:clamp(54px,15vw,68px);height:clamp(54px,15vw,68px);border-radius:16px;border:2px solid var(--line);background:var(--btn);font-size:clamp(22px,6vw,28px);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1;color:var(--ink);touch-action:none;padding:0}
-.tool small{font-size:11px;color:var(--ink2)}
-.tool.on{border-color:var(--accent);background:var(--btn2)}
+/* 判子（會議 #6，Master 2026-10-23 裁定 emoji 改金字）：一字一印，細金框，按下去就是一個決定 */
+.tool{width:clamp(54px,15vw,68px);height:clamp(54px,15vw,68px);border-radius:10px;border:1.5px solid var(--accent);background:var(--btn);font-family:"Noto Serif TC","Noto Serif CJK TC",serif;font-weight:500;font-size:clamp(24px,6.4vw,30px);display:flex;align-items:center;justify-content:center;line-height:1;color:var(--accent);touch-action:none;padding:0}
+.tool.on{background:var(--accent);color:var(--paper)}
+.hk{font-family:"Noto Serif TC","Noto Serif CJK TC",serif!important;font-weight:500;color:var(--accent)!important}
+#menu{position:fixed;right:calc(env(safe-area-inset-right) + 10px);top:calc(env(safe-area-inset-top) + 64px);background:var(--card);border:1.5px solid var(--line);border-radius:14px;padding:6px;display:flex;flex-direction:column;gap:4px;z-index:7}
+#menu button{border:1px solid var(--line);background:var(--btn);color:var(--ink);border-radius:10px;padding:8px 14px;font-size:15px;font-family:inherit;min-height:44px}
 #sheet{position:fixed;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom) + 96px);max-height:34vh;background:var(--card);border:1.5px solid var(--line);border-radius:20px;box-shadow:0 3px 0 var(--shadow);display:none;flex-direction:column;overflow:hidden;z-index:4}
 #sheet.open{display:flex}
 #sheet .hd{display:flex;align-items:baseline;gap:8px;padding:10px 14px 4px}
@@ -51,13 +54,13 @@ canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:
 /* 封面（2026-10-20 封面工程）：不用 zoom；2K 三個存檔卡橫排＋縮圖，手機直式一屏；標題思源宋體 */
 #title{position:fixed;inset:0;background:var(--paper);display:flex;align-items:center;justify-content:center;z-index:20;padding:calc(env(safe-area-inset-top) + 16px) 16px calc(env(safe-area-inset-bottom) + 16px)}
 #title .card{width:min(100%,1320px);text-align:left}
-#title h1{margin:0;font-family:"Noto Serif TC","Noto Serif CJK TC",serif;font-weight:900;font-size:clamp(34px,4.5vw,64px);letter-spacing:.12em;line-height:1.2}
+#title h1{margin:0;color:var(--accent);font-family:"Noto Serif TC","Noto Serif CJK TC",serif;font-weight:900;font-size:clamp(34px,4.5vw,64px);letter-spacing:.12em;line-height:1.2}
 #title p{margin:6px 0 20px;word-break:keep-all}#title p span{display:inline-block}#title p{color:var(--ink2);font-size:clamp(15px,1.2vw,20px)}
 #title button{display:block;width:100%;margin:0;padding:13px;border-radius:16px;border:2px solid var(--accent);background:var(--btn2);font-size:18px;color:var(--ink);font-family:inherit}
 #title button.alt{border-color:var(--line);background:var(--btn);font-size:clamp(15px,1.1vw,18px);width:auto;padding:12px 22px;margin-top:16px}
 #slots{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
 #title .slot{text-align:left;padding:14px;font-size:clamp(14px,1vw,17px);line-height:1.5;display:grid;grid-template-rows:auto auto auto;gap:4px;min-height:100%}
-#title .slot canvas{position:static;inset:auto;height:auto;display:block;width:100%;aspect-ratio:4/3;border-radius:12px;background:rgba(255,255,255,.35)}
+#title .slot canvas{position:static;inset:auto;height:auto;display:block;width:100%;aspect-ratio:4/3;border-radius:12px;background:rgba(255,255,255,.04)}
 #title .slot b{display:block;font-size:clamp(17px,1.4vw,24px);margin-top:6px}#title .slot span{display:block;color:var(--ink2)}
 #title .slot.empty{border-color:var(--line);background:var(--btn)}
 @media (max-width:640px){#title{align-items:flex-start}#title .card{padding-top:24px}#slots{grid-template-columns:1fr;gap:10px}
@@ -69,25 +72,25 @@ canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:
 }
 /* ALPHA 版面：手機觸控鈕放大、2K 整組放大（Master 2026-10-06 驗收標準） */
 .pill button{min-width:44px;min-height:44px}
-.tool small{font-size:14px}
 @media (max-width:600px){#hud{flex-wrap:wrap}#speed{gap:2px;margin-left:auto}.pill button{min-width:40px;padding:2px}}
-@media (min-width:1400px){.pill{font-size:22px;padding:8px 16px}.pill button{font-size:26px;min-width:60px;min-height:60px}.tool{width:100px;height:100px;font-size:40px}.tool small{font-size:20px}#sheet{font-size:20px}}
+@media (min-width:1400px){.pill{font-size:22px;padding:8px 16px}.pill button{font-size:26px;min-width:60px;min-height:60px}.tool{width:100px;height:100px;font-size:44px}#sheet{font-size:20px}#menu{top:calc(env(safe-area-inset-top) + 84px)}#menu button{font-size:20px}}
 </style>
 <canvas id="cv"></canvas>
 <div id="hud">
  <div class="pill"><b id="dateTxt"></b><span id="wxTxt"></span></div>
- <div class="pill" id="speed"><button data-s="0">⏸</button><button data-s="1" class="on">▶</button><button data-s="4">⏩</button><button data-s="16">⏭</button><button id="mute">🔊</button><button id="reset">↺</button></div>
+ <div class="pill" id="speed"><button id="pp" class="hk" title="暫停／繼續">停</button><button id="spd" class="hk" title="走 1×・快 4×・飛 16×">走</button><button id="mute" class="hk" title="靜音">音</button><button id="more" class="hk" title="更多">⋯</button></div>
+<div id="menu" hidden><button id="wall">壁紙：把此刻的畫面存成 PNG</button><button id="reset">重來：清掉這一格的盆栽</button></div>
 </div>
 <div id="tray">
- <button class="tool" data-tool="water">💧<small>水壺</small></button>
- <button class="tool" data-tool="fert">🌱<small>肥料</small></button>
- <button class="tool" data-tool="scissors">✂️<small>剪刀</small></button>
- <button class="tool" data-tool="pot">🪴<small>換盆</small></button>
- <button class="tool" data-tool="wire" id="wireBtn" style="display:none">🪢<small>蟠紮</small></button>
+ <button class="tool" data-tool="water" title="水壺">水</button>
+ <button class="tool" data-tool="fert" title="肥料">肥</button>
+ <button class="tool" data-tool="scissors" title="剪刀">剪</button>
+ <button class="tool" data-tool="pot" title="換盆">盆</button>
+ <button class="tool" data-tool="wire" id="wireBtn" style="display:none" title="蟠紮">線</button>
 </div>
 <div id="sheet"></div>
 <div id="toast"></div>
-<div id="title"><div class="card"><h1>盆栽小舖</h1><p><span>看葉子，不看數字。</span> <span>拖水壺、拖盆子，慢慢把它們養活。</span></p><div id="slots"></div><button id="bonBtn" class="alt">新遊戲（盆景台已解鎖）</button></div></div>
+<div id="title"><div class="card"><h1>盆栽小舖</h1><p><span>看葉子，不看數字。</span></p><div id="slots"></div><button id="bonBtn" class="alt">新遊戲（盆景台已解鎖）</button></div></div>
 
 <!-- 程式碼 MIT License；美術為程式繪製（CC BY-NC 4.0）。Copyright (c) 2026 Yen-Ting R. Lin (roylin1003). A collaborative project by roylin1003 and Claude. 全部由 AI 協作製作。致謝見 credits.html -->
 <script src="https://beacon.roynexus.com/b.js"></script>
@@ -426,13 +429,14 @@ function bonsaiScore(p){
 //</SIM>
 
 // ---------- THEME ----------
-const THEME={paper:'#f7eedd',ink:'#4b3a30',ink2:'#7a6556',accent:'#e58a5b',leaf:'#6fae7c',water:'#6aa9d6',warn:'#d9654b',card:'rgba(255,250,240,.94)',line:'#e4d3b8',shadow:'rgba(120,90,60,.25)',btn:'#fff6e6',btn2:'#ffe3cf'};
+// 優雅版（2026-10-23 Master：「那個花盆實在是不優雅」）：黑金——墨色背景、黑漆層板描金、真正的盆、不畫臉、思源宋體
+const THEME={paper:'#15131a',ink:'#ece3d0',ink2:'#a99d87',accent:'#d4af55',leaf:'#7fb389',water:'#7fb6dc',warn:'#d9654b',card:'rgba(26,23,30,.94)',line:'#4a4036',shadow:'rgba(0,0,0,.45)',btn:'#24202a',btn2:'#3b3122'};
 for(const k in THEME)document.documentElement.style.setProperty('--'+k,THEME[k]);
-const C={wall:'#f0e2c6',wallN:'#5a5470',wood:'#b98a5e',woodD:'#94693f',woodL:'#d3a878',terra:'#d98b64',cream:'#efe3cf',teal:'#5b8f8a',soilDry:'#cdb38a',soilWet:'#5b3f2d',
+const C={wall:'#2b272f',wallN:'#121017',wood:'#120f0e',woodD:'#070605',woodL:'#c9a24a',terra:'#a8563a',cream:'#efe6d6',teal:'#3f6b63',soilDry:'#8c7a5a',soilWet:'#3a2a1e',
  leaf:'#5fae6e',leafD:'#3f8a56',leafY:'#d8c24a',leafDead:'#8a6a3c',var:'#e8d46a',succ:'#8fc3a5',succD:'#6aa58c',blush:'#e98aa0',stem:'#a8b28a',
- bark:'#8a6a4e',barkL:'#a98863',ficus:'#4f9a5b',copper:'#c9784a',face:'#4b3a30',cheek:'#f2a0a0',water:'#7ab8e0',rail:'#8a7a6a',scar:'#9a6a3a',
+ bark:'#8a6a4e',barkL:'#a98863',ficus:'#4f9a5b',copper:'#c9784a',face:'#4b3a30',cheek:'#f2a0a0',water:'#7ab8e0',rail:'#1a1716',scar:'#9a6a3a',
  // 真柏與山巔
- jbark:'#6a4a34',juni:'#4f8a74',bronze:'#9a7a48',shari:'#ece6d8',glaze:'#3b4a6b',stand:'#2a1c14',moss:'#5f7f3e',rock:'#4a4650',rockL:'#6a6470',ridge:'#8a8aa8',mist:'#f3eee6'};
+ jbark:'#6a4a34',juni:'#4f8a74',bronze:'#9a7a48',shari:'#ece6d8',glaze:'#2f4a7a',stand:'#0e0c0b',moss:'#5f7f3e',rock:'#4e4a56',rockL:'#6b6675',ridge:'#6a6a88',mist:'#e8e2da',gold:'#c9a24a',celadon:'#9fb8a8',shudei:'#8a4a30'};
 const SKY=[[0,'#1b2545','#2d3b66'],[5,'#2d3b66','#e9a079'],[7,'#8fc7ea','#f5dcb0'],[12,'#7ec3ee','#d7ecf7'],[17,'#8fc0e6','#f7d3a2'],[19,'#4a4a7a','#e58a6a'],[21,'#1f2a4d','#34436e'],[24,'#1b2545','#2d3b66']];
 
 // ---------- 工具 ----------
@@ -453,7 +457,7 @@ const keyOf=i=>i?'bonsai-shop-v1-s'+(i+1):'bonsai-shop-v1';
 let slot=0;
 const ui={sel:null,tool:'hand',tab:'o',speed:1,muted:false};
 try{ui.muted=localStorage.getItem('bonsai-muted')==='1'}catch(e){}
-document.getElementById('mute')&&ui.muted&&(document.getElementById('mute').textContent='🔇');
+
 const cam={cx:360,cy:640,z:1};
 let started=false,accFrac=0,hits=[],fx=[],tClock=0;
 function save(){try{localStorage.setItem(keyOf(slot),JSON.stringify(W,(k,v)=>k==='out'?undefined:v))}catch(e){}}
@@ -470,11 +474,14 @@ function fit(){
  cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);
 }
 new ResizeObserver(fit).observe(document.body);addEventListener('resize',fit);fit();
-function metrics(){
+function metrics(){ // 格不等寬（2026-10-23 會議 #8）：山巔 1.4 倍，真柏是主角
  const sp=spotKeys(),n=sp.length,wide=LW>LH,baseY=LH*(wide?.8:.68);
- return{sp,n,baseY,S:Math.min(LW/n/150,(baseY-(wide?96:120))/290),slotW:LW/n};
+ const wt=sp.map(k=>k==='peak'?1.4:1),u=LW/wt.reduce((a,b)=>a+b,0),x0=[],w=[],cx=[];let x=0;
+ for(let i=0;i<n;i++){x0.push(x);w.push(wt[i]*u);cx.push(x+wt[i]*u/2);x+=wt[i]*u}
+ return{sp,n,baseY,S:Math.min(u/150,(baseY-(wide?96:120))/290),slotW:u,x0,w,cx};
 }
-const slotX=(i,n)=>LW*(i+.5)/n;
+const slotX=(i,n)=>metrics().cx[i];
+const slotIndexAt=(m,wx)=>{for(let i=0;i<m.n;i++)if(wx<m.x0[i]+m.w[i])return i;return m.n-1};
 function visRect(){
  const s=$('sheet'),tr=$('tray').getBoundingClientRect();
  let l=0,r=LW,t=56/scale,b=tr.top/scale;
@@ -485,7 +492,7 @@ function camTarget(){
  const m=metrics(),p=ui.sel!=null?plantById(ui.sel):null;
  if(!p)return{cx:LW/2,cy:LH/2,z:1};
  const i=m.sp.indexOf(p.spot),px=slotX(i,m.n),v=visRect();
- const z=clamp(Math.min(v.w/(m.slotW*1.15),(v.b-v.t-30)/(300*m.S)),1,1.7);
+ const z=clamp(Math.min(v.w/(m.w[i]*1.15),(v.b-v.t-30)/(300*m.S)),1,1.7);
  return{cx:px-((v.l+v.r)/2-LW/2)/z,cy:m.baseY-(v.b-20-LH/2)/z,z};
 }
 
@@ -501,32 +508,38 @@ function drainOut(){
  while(W.out.length){
   const o=W.out.shift();
   if(o.k==='unlock'){toast('鄰居送了一株小葉榕苗，放在新的「盆景台」。蟠紮工具解鎖。');$('wireBtn').style.display='';SND.tone(660,.3,.08);SND.tone(880,.4,.06)}
-  if(o.k==='juniper'){toast('老客人出讓了一株老真柏——抵小舖好幾個月的營收，放在「'+SPOT[o.spot].n+'」。剪錯一刀、澆錯一次水都看得見。在盆景台養滿 '+PEAK_DAYS+' 個好日子，山巔就開。',6000);SND.tone(520,.3,.08);SND.tone(780,.5,.06)}
-  if(o.k==='peak'){toast('山巔開放了。只有真柏上得去：光最烈、夜最冷、會淋雨會結霜。把它拖上去。',6000);SND.tone(660,.3,.08);SND.tone(990,.5,.06)}
+  if(o.k==='juniper'){toast('老客人出讓了一株老真柏，放在「'+SPOT[o.spot].n+'」。',4000);SND.tone(520,.3,.08);SND.tone(780,.5,.06)}
+  if(o.k==='peak'){toast('山巔開了，只有真柏上得去。',4000);SND.tone(660,.3,.08);SND.tone(990,.5,.06)}
   if(o.k==='dead'){toast('有一盆枯死了。點開看日誌，找出是哪個變數出的事。')}
  }
 }
 
 // ---------- 繪製：房間 ----------
 function drawRoom(m,hf,dl,raining){
- const X0=-LW,X1=LW*2,Y0=-LH,Y1=LH*2,sw=m.slotW,S=m.S,by=m.baseY,nOut=W.peak?2:1,bx=LW-sw*nOut,bR=W.peak?bx+sw:X1;
- ctx.fillStyle=mix(C.wallN,C.wall,dl);ctx.fillRect(X0,Y0,bx-X0,Y1-Y0);
- // 牆面條紋
- ctx.fillStyle='rgba(255,255,255,.07)';for(let x=X0;x<bx;x+=64)ctx.fillRect(x,Y0,28,Y1-Y0);
- // 陽台天空（山巔開放後延伸到最右格）
+ const X0=-LW,X1=LW*2,Y0=-LH,Y1=LH*2,sw=m.slotW,S=m.S,by=m.baseY,nOut=W.peak?2:1,bi=m.n-nOut,bx=m.x0[bi],bR=bx+m.w[bi],px0=W.peak?m.x0[m.n-1]:X1;
+ ctx.fillStyle=mix(C.wallN,C.wall,dl);ctx.fillRect(X0,Y0,px0-X0,Y1-Y0);
+ // 光從窗邊往室內遞減（會議 #4）：牆上一道由亮到暗的梯度，光的邏輯就在牆上
+ let g=ctx.createLinearGradient(sw*.5,0,bx,0);g.addColorStop(0,'rgba(255,232,190,'+(.14*dl)+')');g.addColorStop(1,'rgba(0,0,0,.35)');ctx.fillStyle=g;ctx.fillRect(X0,Y0,px0-X0,Y1-Y0);
+ // 陽台＝一扇深框拉門（會議 #7）：天空只在門裡，玻璃帶一層暗色，盆才是最亮的東西
+ const door={x:bx+m.w[bi]*.1,y:by-430*S,w:m.w[bi]*.8,h:430*S};
+ // 墨牆上一點和紙的紋理（極淡）
+ ctx.fillStyle='rgba(255,255,255,.025)';for(let i=0;i<40;i++){const x=X0+hash(i,71)*(bx-X0),y=Y0+hash(i,72)*(by-Y0);ctx.beginPath();ctx.ellipse(x,y,60+hash(i,73)*120,8+hash(i,74)*10,hash(i,75)*.6-.3,0,6.29);ctx.fill()}
  const[skyT,skyB]=skyAt(hf);
- let g=ctx.createLinearGradient(0,Y0,0,by);g.addColorStop(0,skyT);g.addColorStop(1,skyB);
- ctx.fillStyle=g;ctx.fillRect(bx,Y0,X1-bx,by-Y0);
- // 遠方城市（只在陽台那格後面）
- ctx.save();ctx.beginPath();ctx.rect(bx,Y0,bR-bx,by-Y0);ctx.clip();
+ g=ctx.createLinearGradient(0,Y0,0,by);g.addColorStop(0,skyT);g.addColorStop(1,skyB);
+ ctx.fillStyle=g;ctx.fillRect(door.x,door.y,door.w,door.h);
+ if(W.peak)ctx.fillRect(px0,Y0,X1-px0,by-Y0);
+ // 門裡：遠方城市、欄杆、玻璃暗色
+ ctx.save();ctx.beginPath();ctx.rect(door.x,door.y,door.w,door.h);ctx.clip();
  ctx.fillStyle=mix(skyB,'#7a6a8a',.45);
- for(let i=0;i<7;i++){const h=60+hash(i,3)*150,w=34+hash(i,5)*30;ctx.fillRect(bx+i*(sw/5.5)-10,by-30*S-h,w,h+30*S)}
+ for(let i=0;i<7;i++){const h=60+hash(i,3)*150,w=34+hash(i,5)*30;ctx.fillRect(door.x+i*(door.w/5.5)-10,by-30*S-h,w,h+30*S)}
+ ctx.strokeStyle=C.rail;ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(door.x,by-58*S);ctx.lineTo(door.x+door.w,by-58*S);ctx.stroke();
+ ctx.lineWidth=3;for(let x=door.x+10;x<door.x+door.w;x+=26){ctx.beginPath();ctx.moveTo(x,by-58*S);ctx.lineTo(x,by);ctx.stroke()}
+ ctx.fillStyle='rgba(18,16,26,'+(.28+.2*(1-dl))+')';ctx.fillRect(door.x,door.y,door.w,door.h);
  ctx.restore();
- // 陽台欄杆
- ctx.strokeStyle=C.rail;ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(bx,by-58*S);ctx.lineTo(bR,by-58*S);ctx.stroke();
- ctx.lineWidth=3;for(let x=bx+10;x<bR;x+=26){ctx.beginPath();ctx.moveTo(x,by-58*S);ctx.lineTo(x,by);ctx.stroke()}
+ ctx.strokeStyle=C.wood;ctx.lineWidth=10;ctx.strokeRect(door.x,door.y,door.w,door.h);ctx.strokeStyle=C.gold;ctx.lineWidth=1.2;ctx.strokeRect(door.x-6,door.y-6,door.w+12,door.h+12);
+ ctx.strokeStyle=C.wood;ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(door.x+door.w/2,door.y);ctx.lineTo(door.x+door.w/2,door.y+door.h);ctx.stroke();
  // 窗
- const fx0=sw*.08,fw=sw*.84,fy0=Math.max(50,by-470*S),fh=by-30-fy0;
+ const fx0=sw*.22,fw=sw*.56,fy0=Math.max(50,by-440*S),fh=Math.min(230*S,by-180*S-fy0); // 窗縮成上半段窄障子，只當光源（會議 #7）
  g=ctx.createLinearGradient(0,fy0,0,fy0+fh);g.addColorStop(0,skyT);g.addColorStop(1,skyB);
  ctx.fillStyle=g;ctx.fillRect(fx0,fy0,fw,fh);
  ctx.save();ctx.beginPath();ctx.rect(fx0,fy0,fw,fh);ctx.clip();
@@ -536,34 +549,37 @@ function drawRoom(m,hf,dl,raining){
  const cl=raining?'rgba(120,130,150,.9)':'rgba(255,255,255,.85)';ctx.fillStyle=cl;
  for(let i=0;i<3;i++){const cx=fx0+((hash(i,9)*fw+tClock*(8+i*3))%(fw+120))-60,cy=fy0+30+i*fh*.18;ctx.beginPath();ctx.ellipse(cx,cy,50,16,0,0,6.29);ctx.ellipse(cx+26,cy-8,34,14,0,0,6.29);ctx.fill()}
  ctx.restore();
- ctx.strokeStyle=C.woodL;ctx.lineWidth=9;ctx.strokeRect(fx0,fy0,fw,fh);ctx.lineWidth=6;ctx.beginPath();ctx.moveTo(fx0+fw/2,fy0);ctx.lineTo(fx0+fw/2,fy0+fh);ctx.moveTo(fx0,fy0+fh*.5);ctx.lineTo(fx0+fw,fy0+fh*.5);ctx.stroke();
- ctx.fillStyle=C.woodL;ctx.fillRect(fx0-8,fy0+fh,fw+16,12);
+ // 窗框：黑漆細框＋金線，格子像障子
+ ctx.strokeStyle=C.wood;ctx.lineWidth=10;ctx.strokeRect(fx0,fy0,fw,fh);ctx.strokeStyle=C.gold;ctx.lineWidth=1.2;ctx.strokeRect(fx0-6,fy0-6,fw+12,fh+12);
+ ctx.strokeStyle=C.wood;ctx.lineWidth=4;ctx.beginPath();for(let k=1;k<3;k++){ctx.moveTo(fx0+fw*k/3,fy0);ctx.lineTo(fx0+fw*k/3,fy0+fh)}for(let k=1;k<4;k++){ctx.moveTo(fx0,fy0+fh*k/4);ctx.lineTo(fx0+fw,fy0+fh*k/4)}ctx.stroke();
+ ctx.fillStyle=C.wood;ctx.fillRect(fx0-8,fy0+fh,fw+16,10);ctx.fillStyle=C.gold;ctx.fillRect(fx0-8,fy0+fh+10,fw+16,1.5);
  // 光束
- if(dl>.3&&!raining){g=ctx.createLinearGradient(fx0+fw,0,sw*2.1,0);g.addColorStop(0,'rgba(255,238,180,'+(.2*dl)+')');g.addColorStop(1,'rgba(255,238,180,0)');ctx.fillStyle=g;ctx.beginPath();ctx.moveTo(fx0+fw,fy0+fh*.15);ctx.lineTo(fx0+fw,fy0+fh);ctx.lineTo(sw*2.1,by);ctx.lineTo(sw*1.5,by-fh*.55);ctx.closePath();ctx.fill()}
- // 室內牆上掛畫
- if(m.n>1){const px=slotX(1,m.n);ctx.fillStyle=C.woodL;rr(ctx,px-44,by-400*S,88,66,6);ctx.fill();ctx.fillStyle=mixRGB(C.wall,'#c9a77a',.4);ctx.fillRect(px-37,by-393*S,74,52);ctx.fillStyle=C.leaf;ctx.beginPath();ctx.arc(px,by-367*S,10,0,6.29);ctx.fill()}
- // 掛鐘（跟著遊戲時間走）
- {const cx=slotX(m.n-nOut-1,m.n),cy=by-380*S,R=34;
-  ctx.fillStyle=C.woodL;ctx.beginPath();ctx.arc(cx,cy,R+6,0,6.29);ctx.fill();
-  ctx.fillStyle='#fff8ea';ctx.beginPath();ctx.arc(cx,cy,R,0,6.29);ctx.fill();
-  ctx.strokeStyle=THEME.ink2;ctx.lineWidth=2;for(let i=0;i<12;i++){const a=i*Math.PI/6;ctx.beginPath();ctx.moveTo(cx+Math.sin(a)*(R-7),cy-Math.cos(a)*(R-7));ctx.lineTo(cx+Math.sin(a)*(R-2),cy-Math.cos(a)*(R-2));ctx.stroke()}
-  ctx.lineCap='round';ctx.strokeStyle=THEME.ink;ctx.lineWidth=4;const ah=((hf%12)/12)*6.2832,am=(hf%1)*6.2832;
-  ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.sin(ah)*R*.5,cy-Math.cos(ah)*R*.5);ctx.stroke();
-  ctx.lineWidth=2.6;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.sin(am)*R*.78,cy-Math.cos(am)*R*.78);ctx.stroke();
-  ctx.fillStyle=THEME.ink;ctx.beginPath();ctx.arc(cx,cy,3,0,6.29);ctx.fill()}
+ if(dl>.3&&!raining){g=ctx.createLinearGradient(fx0+fw,0,sw*2.1,0);g.addColorStop(0,'rgba(255,225,160,'+(.14*dl)+')');g.addColorStop(1,'rgba(255,225,160,0)');ctx.fillStyle=g;ctx.beginPath();ctx.moveTo(fx0+fw,fy0+fh*.15);ctx.lineTo(fx0+fw,fy0+fh);ctx.lineTo(sw*2.1,by);ctx.lineTo(sw*1.5,by-fh*.55);ctx.closePath();ctx.fill()}
+ // 掛軸：室內那格牆上一幅墨山（取代卡通掛畫與掛鐘；時間在 HUD）
+ if(m.n>1){const px=slotX(1,m.n),w=92,h=240*Math.min(1,S/1.4),y0=by-(300+110*Math.min(1,S/1.4))*S*.75;
+  ctx.fillStyle='#e9e2d2';ctx.fillRect(px-w/2,y0,w,h);ctx.fillStyle=C.wood;ctx.fillRect(px-w/2-6,y0-6,w+12,8);ctx.fillRect(px-w/2-6,y0+h-2,w+12,8);
+  // 墨山三層：遠山淡、中山、近山濃，稜線用貝茲，山腳沒入留白的霧
+  for(const[a,yy,hh,x1,x2]of[[.22,.46,.16,-.46,.46],[.45,.56,.2,-.3,.4],[.8,.66,.22,-.46,.12]]){ctx.fillStyle='rgba(30,28,34,'+a+')';ctx.beginPath();ctx.moveTo(px+w*x1,y0+h*(yy+.08));ctx.quadraticCurveTo(px+w*(x1+x2)/2*.6,y0+h*(yy-hh),px+w*x2,y0+h*(yy+.08));ctx.lineTo(px+w*x2,y0+h*(yy+.12));ctx.lineTo(px+w*x1,y0+h*(yy+.12));ctx.closePath();ctx.fill()}
+  ctx.fillStyle='rgba(233,226,210,.9)';ctx.fillRect(px-w*.46,y0+h*.74,w*.92,h*.06);
+  ctx.fillStyle='#b23a2a';ctx.fillRect(px+w*.3,y0+h*.8,8,8)}
  // 下雨
- if(raining){ctx.strokeStyle='rgba(180,210,240,.7)';ctx.lineWidth=2;for(let i=0;i<46;i++){const x=(bx+hash(i,4)*(X1-bx)),y=((hash(i,6)*900+tClock*520)%(by-Y0+40))+Y0;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-4,y+18);ctx.stroke()}
+ if(raining){ctx.save();ctx.beginPath();ctx.rect(door.x,door.y,door.w,door.h);if(W.peak)ctx.rect(px0,Y0,X1-px0,by-Y0);ctx.clip();
+  ctx.strokeStyle='rgba(180,210,240,.7)';ctx.lineWidth=2;for(let i=0;i<46;i++){const x=(bx+hash(i,4)*(X1-bx)),y=((hash(i,6)*900+tClock*520)%(by-Y0+40))+Y0;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-4,y+18);ctx.stroke()}ctx.restore();
   for(let i=0;i<14;i++){const x=fx0+hash(i,8)*fw,y=fy0+((hash(i,7)*400+tClock*380)%fh);ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-3,y+14);ctx.stroke()}}
- // 層板
+ // 層板：黑漆、描一條金線；層板下方一道極淡的反光
  ctx.fillStyle=C.wood;ctx.fillRect(X0,by,X1-X0,22*S);ctx.fillStyle=C.woodD;ctx.fillRect(X0,by+22*S,X1-X0,6*S);
- ctx.fillStyle=C.woodL;ctx.fillRect(X0,by,X1-X0,4*S);
+ ctx.fillStyle=C.gold;ctx.fillRect(X0,by,X1-X0,1.5);ctx.fillStyle='rgba(201,162,74,.35)';ctx.fillRect(X0,by+22*S-1,X1-X0,1);
  if(W.peak)drawPeak(m,hf,dl,raining,skyB);
- ctx.font='600 '+Math.round(17)+'px ui-rounded,"Noto Sans TC",sans-serif';ctx.textAlign='center';
- m.sp.forEach((k,i)=>{if(k==='peak'){ctx.strokeStyle=C.rock;ctx.lineWidth=4;ctx.lineJoin='round';ctx.strokeText(SPOT[k].n,slotX(i,m.n),by+22*S+26)}ctx.fillStyle=k==='peak'?C.mist:THEME.ink2;ctx.fillText(SPOT[k].n,slotX(i,m.n),by+22*S+26)});
+ ctx.font='500 '+Math.round(17)+'px "Noto Serif TC","Noto Serif CJK TC",serif';ctx.textAlign='center';
+ const selP=ui.sel!=null?plantById(ui.sel):null,showAll=!!(ptr.dr&&ptr.dr.moved); // 格名只在點選或拖曳時出現（會議 #3）
+ m.sp.forEach((k,i)=>{if(!showAll&&!(selP&&selP.spot===k))return;if(k==='peak'){ctx.strokeStyle='rgba(20,18,24,.85)';ctx.lineWidth=5;ctx.lineJoin='round';ctx.strokeText(SPOT[k].n,m.cx[i],by+22*S+26)}ctx.fillStyle=C.gold;ctx.fillText(SPOT[k].n,m.cx[i],by+22*S+26)});
 }
 // 山巔：最右那格換成峰頂與雲海（畫法借晨帖的 peak()，程式各自獨立）。太陽直射、遠峰出雲、崖壁沒入雲海、霧飄過几腳
 function drawPeak(m,hf,dl,raining,skyB){
- const X1=LW*2,Y1=LH*2,sw=m.slotW,S=m.S,by=m.baseY,x0=LW-sw,cx=x0+sw*.5;
+ const X1=LW*2,Y1=LH*2,sw=m.w[m.n-1],S=m.S,by=m.baseY,x0=m.x0[m.n-1],cx=x0+sw*.5;
+ // 漫畫分鏡（2026-10-23 Master：「山巔與陽台重疊了」）：山巔自成一格——裁切到格內、自己一層高山的深藍天、左邊一道粗墨框線描金
+ ctx.save();ctx.beginPath();ctx.rect(x0,-LH,X1-x0,Y1+LH);ctx.clip();
+ let g0=ctx.createLinearGradient(0,-LH,0,by);g0.addColorStop(0,'rgba(40,70,140,'+(.45*dl+.15)+')');g0.addColorStop(.6,'rgba(90,120,180,'+(.2*dl)+')');g0.addColorStop(1,'rgba(120,150,200,0)');ctx.fillStyle=g0;ctx.fillRect(x0,-LH,X1-x0,by+LH);
  // 太陽／月亮直接掛在峰頂上空——這裡沒有窗，光最烈
  if(hf>=6&&hf<=18){const t=(hf-6)/12,sx=x0+sw*(.15+.7*t),sy=by-S*(150+140*Math.sin(Math.PI*t));
   let g=ctx.createRadialGradient(sx,sy,0,sx,sy,sw*.9);g.addColorStop(0,'rgba(255,244,200,'+(.5*dl)+')');g.addColorStop(1,'rgba(255,244,200,0)');ctx.fillStyle=g;ctx.fillRect(x0-sw,by-600*S,sw*3,600*S);
@@ -576,12 +592,18 @@ function drawPeak(m,hf,dl,raining,skyB){
  // 崖壁與峰頂平台：平台在層板高度，兩側崖壁沒入雲海
  ctx.fillStyle=C.rock;ctx.beginPath();ctx.moveTo(x0-sw*.2,Y1);ctx.lineTo(x0-sw*.05,by+70*S);ctx.lineTo(x0+sw*.1,by+8*S);ctx.lineTo(x0+sw*.18,by-2*S);ctx.lineTo(x0+sw*.82,by-2*S);ctx.lineTo(x0+sw*.9,by+10*S);ctx.lineTo(x0+sw*1.08,by+90*S);ctx.lineTo(X1,Y1);ctx.closePath();ctx.fill();
  ctx.fillStyle=C.rockL;ctx.beginPath();ctx.moveTo(x0+sw*.18,by-2*S);ctx.lineTo(x0+sw*.82,by-2*S);ctx.lineTo(x0+sw*.78,by+40*S);ctx.lineTo(x0+sw*.12,by+34*S);ctx.closePath();ctx.fill();
+ // 岩紋：讓它讀成石頭不是層板——崖面幾道斜裂、平台邊緣一道亮稜
+ ctx.strokeStyle='rgba(255,255,255,.09)';ctx.lineWidth=2;ctx.beginPath();for(let i=0;i<7;i++){const ax=x0+sw*(.02+hash(i,81)*.96),ay=by+S*(10+hash(i,82)*160);ctx.moveTo(ax,ay);ctx.lineTo(ax+(hash(i,83)-.5)*sw*.25,ay+S*(30+hash(i,84)*70))}ctx.stroke();
+ ctx.strokeStyle='rgba(255,255,255,.22)';ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(x0+sw*.1,by+8*S);ctx.lineTo(x0+sw*.18,by-2*S);ctx.lineTo(x0+sw*.82,by-2*S);ctx.lineTo(x0+sw*.9,by+10*S);ctx.stroke();
  // 雲海：三層霧帶慢慢飄，最上層輕輕掠過平台邊
  for(let i=0;i<3;i++){const y=by+(30+i*48)*S,a=.45+i*.18,v=(6+i*5);ctx.fillStyle='rgba(243,238,230,'+a+')';
   for(let k=0;k<6;k++){const w=sw*(.3+hash(k,40+i)*.3),cxk=x0-sw*.3+((hash(k,50+i)*sw*1.8+tClock*v)%(sw*1.9));ctx.beginPath();ctx.ellipse(cxk,y,w,18*S+i*6*S,0,0,6.29);ctx.ellipse(cxk+w*.5,y-8*S,w*.6,14*S,0,0,6.29);ctx.fill()}}
  ctx.fillStyle='rgba(243,238,230,.55)';ctx.fillRect(x0-sw*.3,by+80*S,sw*1.6,Y1);
  // 霜：夜裡冷到結霜，平台泛白
  const e=envFor(W,'peak');if(e.frost){ctx.fillStyle='rgba(235,245,255,.35)';ctx.fillRect(x0+sw*.12,by-2*S,sw*.7,26*S)}
+ ctx.restore();
+ // 分鏡框線：粗墨一道、兩側金線
+ ctx.fillStyle='#0b0a0d';ctx.fillRect(x0-7,-LH,14,Y1+LH);ctx.fillStyle=C.gold;ctx.fillRect(x0-8,-LH,1.2,Y1+LH);ctx.fillRect(x0+7,-LH,1.2,Y1+LH);
 }
 
 // ---------- 繪製：臉 ----------
@@ -622,30 +644,35 @@ function drawFace(c,x,y,s,md,asleep){
 }
 
 // ---------- 繪製：盆 ----------
-function potDims(p,S){return p.sp==='ficus'?{w:150*S,h:50*S}:p.sp==='juniper'?{w:118*S,h:64*S}:(()=>{const k=[.8,1,1.25][p.pot];return{w:120*k*S,h:92*k*S}})()}
+function potDims(p,S){return p.sp==='ficus'?{w:150*S,h:44*S}:p.sp==='juniper'?{w:112*S,h:56*S}:(()=>{const k=[.85,1,1.2][p.pot];return p.sp==='echeveria'?{w:118*k*S,h:46*S}:{w:112*k*S,h:54*S}})()} // 盆身高度帶 44–56·S（會議 #1），盆大小只變寬
 function drawPot(c,p,X,Y,S,md,asleep,dt){
- const d=potDims(p,S),col=p.sp==='pothos'?C.terra:p.sp==='echeveria'?C.cream:p.sp==='juniper'?C.glaze:C.teal;
- if(p.sp==='juniper'){ // 木几：收藏級的盆不直接放層板
-  c.fillStyle=C.stand;rr(c,X-d.w*.72,Y+2*S,d.w*1.44,10*S,3*S);c.fill();c.fillStyle='#3a2a1e';c.fillRect(X-d.w*.62,Y+12*S,8*S,10*S);c.fillRect(X+d.w*.62-8*S,Y+12*S,8*S,10*S);
-  c.fillStyle='rgba(255,255,255,.08)';c.fillRect(X-d.w*.72,Y+2*S,d.w*1.44,2*S)}
+ // 優雅版：四種真正的盆，不畫臉（心情看葉子）。白瓷圓盆／青磁淺缽／朱泥長方淺盆（有足）／藍釉丸盆描金口＋木几
+ const d=potDims(p,S),sp=p.sp,col=sp==='pothos'?C.cream:sp==='echeveria'?C.celadon:sp==='juniper'?C.glaze:C.shudei;
+ if(sp==='juniper'){c.fillStyle=C.stand;rr(c,X-d.w*.72,Y+2*S,d.w*1.44,10*S,3*S);c.fill();c.fillStyle='#1c1614';c.fillRect(X-d.w*.62,Y+12*S,8*S,10*S);c.fillRect(X+d.w*.62-8*S,Y+12*S,8*S,10*S);c.fillStyle=C.gold;c.fillRect(X-d.w*.72,Y+2*S,d.w*1.44,1)}
  // 根從排水孔鑽出來
- if(p.fill>.88){c.strokeStyle='#f3ead6';c.lineWidth=2.2*S;c.lineCap='round';for(let i=-1;i<=1;i++){c.beginPath();c.moveTo(X+i*d.w*.1,Y-3*S);c.quadraticCurveTo(X+i*d.w*.16,Y+8*S,X+i*d.w*.12+Math.sin(tClock+i)*2,Y+14*S);c.stroke()}}
- // 托盤
- c.fillStyle=mix(col,'#000000',.15);c.beginPath();c.ellipse(X,Y-2*S,d.w*.58,6*S,0,0,6.29);c.fill();
- // 盆身
- const tw=d.w,bw=d.w*.7;
- c.fillStyle=col;c.beginPath();c.moveTo(X-tw/2,Y-d.h);c.lineTo(X+tw/2,Y-d.h);c.quadraticCurveTo(X+bw/2+4*S,Y-d.h*.3,X+bw/2,Y-4*S);c.lineTo(X-bw/2,Y-4*S);c.quadraticCurveTo(X-bw/2-4*S,Y-d.h*.3,X-tw/2,Y-d.h);c.closePath();c.fill();
- c.fillStyle='rgba(255,255,255,.18)';c.beginPath();c.ellipse(X-tw*.28,Y-d.h*.45,tw*.06,d.h*.28,0,0,6.29);c.fill();
- c.fillStyle=mix(col,'#000000',.12);rr(c,X-tw/2-3*S,Y-d.h-8*S,tw+6*S,12*S,5*S);c.fill();
+ if(p.fill>.88){c.strokeStyle='#e6dcc4';c.lineWidth=2.2*S;c.lineCap='round';for(let i=-1;i<=1;i++){c.beginPath();c.moveTo(X+i*d.w*.1,Y-3*S);c.quadraticCurveTo(X+i*d.w*.16,Y+8*S,X+i*d.w*.12+Math.sin(tClock+i)*2,Y+14*S);c.stroke()}}
+ // 影
+ c.fillStyle='rgba(0,0,0,.35)';c.beginPath();c.ellipse(X,Y-1*S,d.w*.56,5*S,0,0,6.29);c.fill();
+ const tw=d.w,h=d.h;
+ if(sp==='ficus'){ // 朱泥長方淺盆：直壁、口沿外翻、四足
+  c.fillStyle=mix(col,'#000000',.35);c.fillRect(X-tw*.42,Y-6*S,tw*.1,6*S);c.fillRect(X+tw*.32,Y-6*S,tw*.1,6*S);
+  c.fillStyle=col;c.fillRect(X-tw/2,Y-h,tw,h-6*S);
+  c.fillStyle=mix(col,'#ffffff',.12);c.fillRect(X-tw/2-3*S,Y-h-5*S,tw+6*S,7*S);
+  c.fillStyle='rgba(255,255,255,.07)';c.fillRect(X-tw/2,Y-h+2*S,tw*.12,h-10*S);
+ }else{ // 圓盆：上寬下窄，口沿一圈
+  const bw=tw*(sp==='echeveria'?.62:.72),hh=h;
+  c.fillStyle=col;c.beginPath();c.moveTo(X-tw/2,Y-hh);c.lineTo(X+tw/2,Y-hh);c.quadraticCurveTo(X+bw/2+2*S,Y-hh*.35,X+bw/2,Y-3*S);c.lineTo(X-bw/2,Y-3*S);c.quadraticCurveTo(X-bw/2-2*S,Y-hh*.35,X-tw/2,Y-hh);c.closePath();c.fill();
+  const g=c.createLinearGradient(X-tw/2,0,X+tw/2,0);g.addColorStop(0,'rgba(0,0,0,.18)');g.addColorStop(.3,'rgba(255,255,255,.08)');g.addColorStop(1,'rgba(0,0,0,.22)');c.fillStyle=g;c.beginPath();c.moveTo(X-tw/2,Y-hh);c.lineTo(X+tw/2,Y-hh);c.quadraticCurveTo(X+bw/2+2*S,Y-hh*.35,X+bw/2,Y-3*S);c.lineTo(X-bw/2,Y-3*S);c.quadraticCurveTo(X-bw/2-2*S,Y-hh*.35,X-tw/2,Y-hh);c.closePath();c.fill();
+  c.fillStyle=mix(col,sp==='pothos'?'#000000':'#ffffff',.12);rr(c,X-tw/2-3*S,Y-hh-7*S,tw+6*S,9*S,3*S);c.fill();
+  if(sp==='juniper'){c.fillStyle=C.gold;c.fillRect(X-tw/2-3*S,Y-hh-7*S,tw+6*S,1.5)}
+ }
  // 土
- c.fillStyle=mixRGB(C.soilDry,C.soilWet,clamp((p.w-.1)/.8,0,1));c.beginPath();c.ellipse(X,Y-d.h-2*S,tw*.45,6*S,0,0,6.29);c.fill();
- if(p.sp==='juniper'){ // 苔：濕的時候翠綠，乾了發黃；結霜時泛白
-  c.fillStyle=mixRGB('#a8a060',C.moss,clamp((p.w-.15)/.4,0,1));for(let i=0;i<7;i++){c.beginPath();c.arc(X+(hash(i,61)-.5)*tw*.8,Y-d.h-3*S-hash(i,62)*4*S,(4+hash(i,63)*5)*S,0,6.29);c.fill()}
-  if(p.frost){c.fillStyle='rgba(235,245,255,.6)';c.beginPath();c.ellipse(X,Y-d.h-4*S,tw*.42,5*S,0,0,6.29);c.fill()}
-  c.fillStyle='rgba(255,255,255,.22)';c.fillRect(X-tw/2-3*S,Y-d.h-8*S,tw+6*S,3*S)} // 釉盆口沿高光
- drawFace(c,X,Y-d.h*.5,S*(SP[p.sp].kind==='bonsai'?.9:1),md,asleep);
+ c.fillStyle=mixRGB(C.soilDry,C.soilWet,clamp((p.w-.1)/.8,0,1));c.beginPath();c.ellipse(X,Y-h-2*S,tw*.45,5*S,0,0,6.29);c.fill();
+ if(SP[sp].kind==='bonsai'){ // 苔：濕的時候翠綠，乾了發黃；結霜時泛白
+  c.fillStyle=mixRGB('#a8a060',C.moss,clamp((p.w-.15)/.4,0,1));for(let i=0;i<7;i++){c.beginPath();c.arc(X+(hash(i,61)-.5)*tw*.8,Y-h-3*S-hash(i,62)*3*S,(3+hash(i,63)*4)*S,0,6.29);c.fill()}
+  if(p.frost){c.fillStyle='rgba(235,245,255,.6)';c.beginPath();c.ellipse(X,Y-h-4*S,tw*.42,5*S,0,0,6.29);c.fill()}}
  // 排水滴
- if(p.w>SP[p.sp].fc+.03&&Math.random()<dt*10)fx.push({k:'drop',x:X+d.w*.2,y:Y,vx:0,vy:20,life:.8,t:0});
+ if(p.w>SP[sp].fc+.03&&Math.random()<dt*10)fx.push({k:'drop',x:X+d.w*.2,y:Y,vx:0,vy:20,life:.8,t:0});
 }
 
 // ---------- 繪製：植物 ----------
@@ -751,12 +778,20 @@ function drawTree(c,p,X,Y,S,pt){
  }
 }
 function drawPlantSlot(p,X,Y,m,dt,alpha,lifted){
- const S=m.S,d=potDims(p,S),md=mood(p),asleep=W.h>=22||W.h<5;
- if(p.sp==='juniper')Y-=12*S; // 盆架在木几上
+ const S=m.S,d=potDims(p,S),md=mood(p),asleep=W.h>=22||W.h<5,onRock=p.spot==='peak';
+ if(p.sp==='juniper'&&!onRock)Y-=12*S; // 盆架在木几上
  ctx.save();ctx.globalAlpha=alpha;
  if(lifted){ctx.fillStyle='rgba(0,0,0,.18)';ctx.beginPath();ctx.ellipse(X,m.baseY,d.w*.5,8*S,0,0,6.29);ctx.fill()}
- drawPot(ctx,p,X,Y,S,md,asleep,dt);
- const rimY=Y-d.h-2*S;
+ let rimY;
+ if(onRock){ // 山巔沒有盆（2026-10-23 Master：「山巔哪來的花盆？」）：樹長在岩縫裡，根抓著石頭，縫裡一撮苔
+  const w=d.w*.7;rimY=Y-5*S;
+  ctx.fillStyle='#1a1720';ctx.beginPath();ctx.moveTo(X-w*.5,Y-2*S);ctx.quadraticCurveTo(X-w*.1,Y-9*S,X+w*.15,Y-6*S);ctx.quadraticCurveTo(X+w*.45,Y-3*S,X+w*.55,Y+2*S);ctx.lineTo(X+w*.3,Y+6*S);ctx.quadraticCurveTo(X,Y+2*S,X-w*.5,Y+1*S);ctx.closePath();ctx.fill();
+  ctx.fillStyle=mixRGB(C.soilDry,C.soilWet,clamp((p.w-.1)/.8,0,1));ctx.beginPath();ctx.ellipse(X,Y-4*S,w*.3,3.5*S,0,0,6.29);ctx.fill();
+  ctx.strokeStyle=p.sp==='juniper'?C.jbark:C.bark;ctx.lineCap='round';
+  for(let i=0;i<5;i++){const a=-.4+i*.2+(hash(i,91)-.5)*.2,L=w*(.35+hash(i,92)*.3),th=(2.2+hash(i,93)*2)*S;ctx.lineWidth=th;ctx.beginPath();ctx.moveTo(X+(i-2)*2*S,rimY+2*S);ctx.quadraticCurveTo(X+Math.cos(a+Math.PI/2*(i<2.5?-1:1)*.5)*L*.5,rimY+4*S,X+(i-2)*L*.5,Y+(3+hash(i,94)*5)*S);ctx.stroke()}
+  ctx.fillStyle=mixRGB('#a8a060',C.moss,clamp((p.w-.15)/.4,0,1));for(let i=0;i<6;i++){ctx.beginPath();ctx.arc(X+(hash(i,61)-.5)*w*.9,Y-3*S-hash(i,62)*3*S,(3+hash(i,63)*3)*S,0,6.29);ctx.fill()}
+  if(p.frost){ctx.fillStyle='rgba(235,245,255,.55)';ctx.beginPath();ctx.ellipse(X,Y-4*S,w*.5,4*S,0,0,6.29);ctx.fill()}
+ }else{drawPot(ctx,p,X,Y,S,md,asleep,dt);rimY=Y-d.h-2*S}
  const shear=ly=>p.lean*ly*ly/(1100*S);
  const pt=(lx,ly)=>[X+lx+shear(ly),rimY+ly];
  if(!p.dead){
@@ -785,13 +820,10 @@ function drawGhost(m){
  const t=ptr.fromTray?ui.tool:ui.tool;
  if(!ptr.down||t==='hand')return;
  const x=ptr.wx,y=ptr.wy;
- ctx.save();ctx.translate(x,y);
- if(t==='water'){
-  ctx.rotate(ptr.pour&&ptr.pouring?-.55:-.15);
-  ctx.fillStyle='#8fb6d6';rr(ctx,-34,-26,56,44,10);ctx.fill();ctx.fillStyle='#a8c8e2';ctx.fillRect(-34,-26,56,10);
-  ctx.strokeStyle='#8fb6d6';ctx.lineWidth=8;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(20,-8);ctx.lineTo(48,-26);ctx.stroke();
-  ctx.beginPath();ctx.arc(-38,-6,16,Math.PI*.5,Math.PI*1.5);ctx.lineWidth=7;ctx.stroke();
- }else{ctx.font='40px sans-serif';ctx.textAlign='center';ctx.fillText({fert:'🌱',scissors:'✂️',pot:'🪴',wire:'🪢'}[t]||'',0,12)}
+ ctx.save();ctx.translate(x,y);if(t==='water')ctx.rotate(ptr.pour&&ptr.pouring?-.5:-.12);
+ // 手上的也是判子：深底金框一個字
+ ctx.fillStyle='rgba(26,23,30,.92)';rr(ctx,-28,-28,56,56,8);ctx.fill();ctx.strokeStyle=C.gold;ctx.lineWidth=1.5;rr(ctx,-28,-28,56,56,8);ctx.stroke();
+ ctx.fillStyle=C.gold;ctx.font='500 34px "Noto Serif TC","Noto Serif CJK TC",serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText({water:'水',fert:'肥',scissors:'剪',pot:'盆',wire:'線'}[t]||'',0,2);ctx.textBaseline='alphabetic';
  ctx.restore();
  if(t==='scissors'||t==='wire'){const h=nearestHit(x,y,40,true);if(h){ctx.strokeStyle=THEME.accent;ctx.lineWidth=3;ctx.beginPath();ctx.arc(h.x,h.y,h.r+4,0,6.29);ctx.stroke()}}
 }
@@ -806,7 +838,7 @@ function drawWorld(dt){
  const sel=ui.sel!=null?plantById(ui.sel):null;
  m.sp.forEach((sk,i)=>{
   const p=plantAt(sk),X=slotX(i,m.n);
-  if(!p){ctx.strokeStyle=THEME.ink2;ctx.globalAlpha=.4;ctx.setLineDash([8,8]);ctx.lineWidth=2;rr(ctx,X-m.slotW*.3,m.baseY-110*m.S,m.slotW*.6,106*m.S,16);ctx.stroke();ctx.setLineDash([]);ctx.globalAlpha=1;return}
+  if(!p){ctx.fillStyle='rgba(201,162,74,.4)';ctx.beginPath();ctx.arc(X,m.baseY-12*m.S,3,0,6.29);ctx.fill();return} // 空格：一點金，不畫框（會議 #2）
   if(ptr.dr&&ptr.dr.moved&&ptr.dr.p===p){drawSlotGhost(m,X);return}
   p.lastT=envFor(W,p.spot).T;
   drawPlantSlot(p,X,m.baseY,m,dt,sel&&sel!==p?.55:1,false);
@@ -827,7 +859,7 @@ function evPos(e){ptr.cx=e.clientX/scale;ptr.cy=e.clientY/scale;ptr.wx=(ptr.cx-L
 function slotAt(wx,wy){
  const m=metrics();if(wx<0||wx>=LW)return null;
  if(wy<m.baseY-360*m.S||wy>m.baseY+40)return null;
- const i=Math.floor(wx/m.slotW),sk=m.sp[i];
+ const i=slotIndexAt(m,wx),sk=m.sp[i];
  return{i,spot:sk,p:plantAt(sk)};
 }
 function nearestHit(wx,wy,rpx,onlySel){
@@ -882,7 +914,7 @@ function onUp(){
  applyAt(t);
 }
 function dropPot(){
- const m=metrics(),p=ptr.dr.p,i=clamp(Math.floor(ptr.wx/m.slotW),0,m.n-1),sk=m.sp[i];
+ const m=metrics(),p=ptr.dr.p,i=slotIndexAt(m,clamp(ptr.wx,0,LW-1)),sk=m.sp[i];
  if(sk===p.spot)return;
  const other=plantAt(sk),old=p.spot;
  if((SPOT[sk].only&&p.sp!==SPOT[sk].only)||(other&&SPOT[old].only&&other.sp!==SPOT[old].only)){toast('山巔只放得下真柏。');return}
@@ -920,6 +952,7 @@ function pourOn(p,dt){
 function endPourLogOnly(){const p=ptr.pourP;if(p)plog(W,p,'澆水（土壤水分 '+pct(ptr.pourW0)+'% → '+pct(p.w)+'%）');ptr.pourP=null}
 function repotPlant(p){
  const S=SP[p.sp];
+ if(p.spot==='peak'){toast('山上沒有盆，根抓在岩縫裡。要修根先搬下山。');return}
  const rb=p.rot;
  p.root-=p.root*rb*.6;
  if(S.kind==='bonsai'){p.root*=.72;p.rot*=.3;p.N=.3;p.w=.55;p.shock=72;plog(W,p,'修根換土：剪掉約三成根，同一個淺盆；樹會暫時停長');toast('修根換土：樹形盆栽不換大盆，要把根修小。')}
@@ -1033,7 +1066,7 @@ function renderSheet(force){
    h+='<div style="margin-top:8px"><b>樹形分 '+Math.round(b.total)+'</b> <span class="note">（直幹式：三角樹冠）</span></div>';
    h+=meter('進入樹冠輪廓',b.fit,1,THEME.leaf,pct(b.fit)+'%')+meter('枝梢密度',b.dens,1,THEME.leaf,b.tips+' 個枝梢')+meter('左右平衡',b.bal,1,THEME.leaf,pct(b.bal)+'%')+meter('細緻度（節間短）',b.fine,1,THEME.leaf,pct(b.fine)+'%')+meter('收尖（基部粗、梢細）',b.taper,1,THEME.leaf,pct(b.taper)+'%');
   }
-  h+='<div class="note" style="margin-top:8px">'+(p.sp==='juniper'?'文人木：看葉團，不看分數。真柏不從光禿的老枝回芽——剪到沒葉的枝就死成神枝；喜全日照、怕濕；要上山巔先在陽台適應強光。':S.kind==='bonsai'?'剪刀點枝條末端剪枝；蟠紮工具拖枝條彎折，再點一次拆線。':S.kind==='succ'?'石蓮花耐旱怕濕，光不夠會徒長。':'黃金葛耐陰，但土太久不乾會爛根。')+'</div>';
+  h+='<div class="note" style="margin-top:8px">'+(p.sp==='juniper'?'真柏不從老枝回芽；喜全日照、怕濕。':S.kind==='bonsai'?'剪刀點枝條末端剪枝；蟠紮工具拖枝條彎折，再點一次拆線。':S.kind==='succ'?'石蓮花耐旱怕濕，光不夠會徒長。':'黃金葛耐陰，但土太久不乾會爛根。')+'</div>';
  }else if(ui.tab==='d'){
   h+=meter('土壤水分',p.w,1,THEME.water,pct(p.w)+'%',[S.wp,S.fc]);
   h+='<div class="note">刻度：萎凋點 '+pct(S.wp)+'% ／ 田間容水量 '+pct(S.fc)+'%</div>';
@@ -1078,12 +1111,22 @@ $('sheet').addEventListener('click',e=>{
 });
 // 速度鈕
 let resetArm=false;
-$('speed').addEventListener('click',e=>{
+// 速度列四顆判子（會議 #5）：停／走·快·飛／音／⋯
+let runSpeed=1;const SPD_NAME={1:'走',4:'快',16:'飛'};
+function toggleMute(){ui.muted=!ui.muted;try{localStorage.setItem('bonsai-muted',ui.muted?'1':'0')}catch(e){}if(ui.muted)SND.pour(false)} // 靜音鈕「音／默」，記在 localStorage
+function paintSpeed(){$('pp').textContent=ui.speed>0?'停':'續';$('spd').textContent=SPD_NAME[runSpeed];$('pp').classList.toggle('on',ui.speed===0);$('mute').textContent=ui.muted?'默':'音'}
+function onHud(e){
  const b=e.target.closest('button');if(!b)return;SND.init();
- if(b.dataset.s!=null){ui.speed=+b.dataset.s;document.querySelectorAll('#speed [data-s]').forEach(x=>x.classList.toggle('on',x===b))}
- else if(b.id==='mute'){ui.muted=!ui.muted;try{localStorage.setItem('bonsai-muted',ui.muted?'1':'0')}catch(e){}b.textContent=ui.muted?'🔇':'🔊';if(ui.muted)SND.pour(false)}
- else if(b.id==='reset'){if(!resetArm){resetArm=true;b.textContent='✔?';toast('再按一次 ↺ 才會重新開始，目前的盆栽會消失。');setTimeout(()=>{resetArm=false;b.textContent='↺'},3500);return}resetArm=false;b.textContent='↺';W=newWorld();ui.sel=null;openSheet(false);$('wireBtn').style.display='none';save()}
-});
+ if(b.id==='pp'){ui.speed=ui.speed>0?0:runSpeed}
+ else if(b.id==='spd'){runSpeed=runSpeed===1?4:runSpeed===4?16:1;ui.speed=runSpeed}
+ else if(b.id==='mute')toggleMute();
+ else if(b.id==='more'){$('menu').hidden=!$('menu').hidden;return}
+ else if(b.id==='wall'){cv.toBlob(bl=>{const a=document.createElement('a');a.href=URL.createObjectURL(bl);a.download='盆栽小舖-壁紙-'+(W.day+1)+'天.png';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5000)});toast('壁紙已存（'+cv.width+'×'+cv.height+'）');$('menu').hidden=true} // 當桌面：畫布本身就是乾淨的畫面，HUD 不在畫布上
+ else if(b.id==='reset'){if(!resetArm){resetArm=true;b.textContent='再按一次就重來';setTimeout(()=>{resetArm=false;b.textContent='重來：清掉這一格的盆栽'},3500);return}resetArm=false;b.textContent='重來：清掉這一格的盆栽';W=newWorld();ui.sel=null;openSheet(false);$('wireBtn').style.display='none';save();$('menu').hidden=true}
+ paintSpeed();
+}
+$('speed').addEventListener('click',onHud);$('menu').addEventListener('click',onHud);
+cv.addEventListener('pointerdown',()=>{$('menu').hidden=true});
 function hud(){
  const d=new Date(2027,0,START_DOY+W.day),e=envFor(W,'balc'),wx=W.wx;
  $('dateTxt').textContent=(d.getMonth()+1)+'/'+d.getDate()+' '+String(W.h).padStart(2,'0')+':00 · 第'+(W.day+1)+'天';
@@ -1111,7 +1154,7 @@ document.addEventListener('visibilitychange',()=>{last=performance.now();if(docu
 
 // ---------- 啟動 ----------
 (function init(){
- const start=()=>{started=true;$('title').style.display='none';SND.init();W.out=[]};
+ const start=()=>{started=true;$('title').style.display='none';SND.init();W.out=[];paintSpeed()};
  const enter=(i,w)=>{slot=i;W=w;$('wireBtn').style.display=W.unlocked?'':'none';start()};
  const preview=w=>{const alive=w.plants.filter(p=>!p.dead),d=new Date(2027,0,START_DOY+w.day);
   return '第 '+(w.day+1)+' 天 · '+(d.getMonth()+1)+'/'+d.getDate()+(w.peak?' · 山巔已開':w.unlocked?' · 盆景台已解鎖':'')+'<br>'+(alive.map(p=>SP[p.sp].name).join('、')||'（沒有活著的植物）')+(w.plants.length>alive.length?'（枯死 '+(w.plants.length-alive.length)+'）':'')};
