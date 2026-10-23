@@ -73,7 +73,7 @@ canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:
 /* ALPHA 版面：手機觸控鈕放大、2K 整組放大（Master 2026-10-06 驗收標準） */
 .pill button{min-width:44px;min-height:44px}
 @media (max-width:600px){#hud{flex-wrap:wrap}#speed{gap:2px;margin-left:auto}.pill button{min-width:40px;padding:2px}}
-@media (min-width:1400px){.pill{font-size:22px;padding:8px 16px}.pill button{font-size:26px;min-width:60px;min-height:60px}.tool{width:100px;height:100px;font-size:44px}#sheet{font-size:20px}#menu{top:calc(env(safe-area-inset-top) + 84px)}#menu button{font-size:20px}}
+@media (min-width:1400px){.pill{font-size:22px;padding:8px 16px}.pill button{font-size:26px;min-width:60px;min-height:60px}.tool{width:100px;height:100px;font-size:44px}#sheet{font-size:20px}#menu{top:calc(env(safe-area-inset-top) + 84px)}#menu button{font-size:20px}#toast{font-size:22px;padding:12px 22px}}
 </style>
 <canvas id="cv"></canvas>
 <div id="hud">
@@ -648,7 +648,7 @@ function potDims(p,S){return p.sp==='ficus'?{w:150*S,h:44*S}:p.sp==='juniper'?{w
 function drawPot(c,p,X,Y,S,md,asleep,dt){
  // 優雅版：四種真正的盆，不畫臉（心情看葉子）。白瓷圓盆／青磁淺缽／朱泥長方淺盆（有足）／藍釉丸盆描金口＋木几
  const d=potDims(p,S),sp=p.sp,col=sp==='pothos'?C.cream:sp==='echeveria'?C.celadon:sp==='juniper'?C.glaze:C.shudei;
- if(sp==='juniper'){c.fillStyle=C.stand;rr(c,X-d.w*.72,Y+2*S,d.w*1.44,10*S,3*S);c.fill();c.fillStyle='#1c1614';c.fillRect(X-d.w*.62,Y+12*S,8*S,10*S);c.fillRect(X+d.w*.62-8*S,Y+12*S,8*S,10*S);c.fillStyle=C.gold;c.fillRect(X-d.w*.72,Y+2*S,d.w*1.44,1)}
+ if(sp==='juniper'&&p.spot==='bon'){c.fillStyle=C.stand;rr(c,X-d.w*.72,Y+2*S,d.w*1.44,10*S,3*S);c.fill();c.fillStyle='#1c1614';c.fillRect(X-d.w*.62,Y+12*S,8*S,10*S);c.fillRect(X+d.w*.62-8*S,Y+12*S,8*S,10*S);c.fillStyle=C.gold;c.fillRect(X-d.w*.72,Y+2*S,d.w*1.44,1)}
  // 根從排水孔鑽出來
  if(p.fill>.88){c.strokeStyle='#e6dcc4';c.lineWidth=2.2*S;c.lineCap='round';for(let i=-1;i<=1;i++){c.beginPath();c.moveTo(X+i*d.w*.1,Y-3*S);c.quadraticCurveTo(X+i*d.w*.16,Y+8*S,X+i*d.w*.12+Math.sin(tClock+i)*2,Y+14*S);c.stroke()}}
  // 影
@@ -779,7 +779,7 @@ function drawTree(c,p,X,Y,S,pt){
 }
 function drawPlantSlot(p,X,Y,m,dt,alpha,lifted){
  const S=m.S,d=potDims(p,S),md=mood(p),asleep=W.h>=22||W.h<5,onRock=p.spot==='peak';
- if(p.sp==='juniper'&&!onRock)Y-=12*S; // 盆架在木几上
+ if(p.sp==='juniper'&&p.spot==='bon')Y-=12*S; // 木几只在盆景台（展示用）；陽台、窗邊直接放層板
  ctx.save();ctx.globalAlpha=alpha;
  if(lifted){ctx.fillStyle='rgba(0,0,0,.18)';ctx.beginPath();ctx.ellipse(X,m.baseY,d.w*.5,8*S,0,0,6.29);ctx.fill()}
  let rimY;
@@ -815,18 +815,34 @@ function drawFx(dt){
   ctx.globalAlpha=1;
  }
 }
+// 手上的工具：程式畫的圖示（Master 2026-10-23：底下留判子，手上要圖；做了就看得到變化）
+const HOVER=matchMedia('(hover:hover)').matches; // 有滑鼠才有「懸停」：圖示跟著游標；手機只在按住時出現
+const TOOL_VERB={water:'澆水',fert:'施肥',scissors:'剪',pot:'換盆',wire:'蟠紮'};
+function drawToolIcon(c,t,tilt){
+ c.save();c.lineCap='round';c.lineJoin='round';c.strokeStyle=C.gold;c.fillStyle='rgba(26,23,30,.9)';c.lineWidth=2.4;
+ if(t==='water'){c.rotate(tilt);rr(c,-22,-12,34,26,7);c.fill();c.stroke();c.beginPath();c.moveTo(12,-6);c.lineTo(34,-20);c.stroke();c.beginPath();c.arc(-24,-2,10,Math.PI*.5,Math.PI*1.5);c.stroke();c.beginPath();c.moveTo(-12,-12);c.quadraticCurveTo(-4,-26,8,-12);c.stroke();
+  if(tilt<-.3){c.fillStyle=C.water;for(let i=0;i<3;i++){c.beginPath();c.ellipse(36+i*5,-16+i*9,2.4,4,0,0,6.29);c.fill()}}}
+ else if(t==='fert'){c.beginPath();c.moveTo(-14,-16);c.lineTo(14,-16);c.lineTo(18,14);c.lineTo(-18,14);c.closePath();c.fill();c.stroke();c.beginPath();c.moveTo(-10,-16);c.quadraticCurveTo(0,-30,10,-16);c.stroke();c.fillStyle='#e8d070';for(let i=0;i<4;i++){c.beginPath();c.arc(-6+i*4,-2+(i%2)*6,2.2,0,6.29);c.fill()}}
+ else if(t==='scissors'){c.beginPath();c.moveTo(-6,2);c.lineTo(20,-20);c.moveTo(6,2);c.lineTo(-20,-20);c.stroke();c.beginPath();c.arc(-9,12,7,0,6.29);c.moveTo(16,12);c.arc(9,12,7,0,6.29);c.stroke()}
+ else if(t==='pot'){c.beginPath();c.moveTo(-20,-6);c.lineTo(20,-6);c.lineTo(14,18);c.lineTo(-14,18);c.closePath();c.fill();c.stroke();c.strokeStyle=C.leaf;c.lineWidth=2.6;c.beginPath();c.moveTo(0,-6);c.lineTo(0,-22);c.moveTo(0,-14);c.quadraticCurveTo(10,-18,12,-26);c.moveTo(0,-14);c.quadraticCurveTo(-10,-18,-12,-26);c.stroke()}
+ else if(t==='wire'){c.strokeStyle=C.copper;c.lineWidth=3;c.beginPath();for(let i=0;i<4;i++)c.arc(-15+i*10,0,6,Math.PI,0,i%2===1);c.stroke()}
+ c.restore();
+}
 function drawGhost(m){
- // 工具跟著手指（水壺／剪刀／肥料／新盆／蟠紮）
- const t=ptr.fromTray?ui.tool:ui.tool;
- if(!ptr.down||t==='hand')return;
- const x=ptr.wx,y=ptr.wy;
- ctx.save();ctx.translate(x,y);if(t==='water')ctx.rotate(ptr.pour&&ptr.pouring?-.5:-.12);
- // 手上的也是判子：深底金框一個字
- ctx.fillStyle='rgba(26,23,30,.92)';rr(ctx,-28,-28,56,56,8);ctx.fill();ctx.strokeStyle=C.gold;ctx.lineWidth=1.5;rr(ctx,-28,-28,56,56,8);ctx.stroke();
- ctx.fillStyle=C.gold;ctx.font='500 34px "Noto Serif TC","Noto Serif CJK TC",serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText({water:'水',fert:'肥',scissors:'剪',pot:'盆',wire:'線'}[t]||'',0,2);ctx.textBaseline='alphabetic';
- ctx.restore();
+ const t=ui.tool;if(t==='hand')return;
+ if(!ptr.down&&!HOVER)return;
+ const x=ptr.wx,y=ptr.wy,sl=slotAt(x,y),over=sl&&sl.p&&!sl.p.dead?sl:null;
+ // 盆子回應：工具移到盆上，那一格亮一圈金線，旁邊寫動作
+ if(over&&!(t==='scissors'||t==='wire')){const X=m.cx[over.i];ctx.strokeStyle=C.gold;ctx.globalAlpha=.75;ctx.lineWidth=2;ctx.setLineDash([6,6]);rr(ctx,X-m.w[over.i]*.36,m.baseY-150*m.S,m.w[over.i]*.72,150*m.S,14);ctx.stroke();ctx.setLineDash([]);ctx.globalAlpha=1}
+ ctx.save();ctx.translate(x,y);ctx.scale(LW>LH?1.5:1.1,LW>LH?1.5:1.1);drawToolIcon(ctx,t,t==='water'?(ptr.pour&&ptr.pouring?-.55:-.12):0);ctx.restore();
+ if(over||t==='scissors'||t==='wire'){ctx.font='500 15px "Noto Serif TC","Noto Serif CJK TC",serif';ctx.textAlign='left';ctx.fillStyle=C.gold;ctx.fillText(t==='water'&&over?(ptr.down?'澆水中…':'按住澆水'):TOOL_VERB[t],x+30,y+34)}
  if(t==='scissors'||t==='wire'){const h=nearestHit(x,y,40,true);if(h){ctx.strokeStyle=THEME.accent;ctx.lineWidth=3;ctx.beginPath();ctx.arc(h.x,h.y,h.r+4,0,6.29);ctx.stroke()}}
 }
+// 每個工具第一次拿起來，浮一行怎麼用（記在 localStorage）；Esc 放下工具
+const HINT={water:'按住盆子澆水，放開就停。',fert:'點一下盆子。',scissors:'先點樹，再點要剪的枝。',pot:'點一下盆子。',wire:'先點樹，拖枝條彎折；再點一次拆線。'};
+let hintSeen={};try{hintSeen=JSON.parse(localStorage.getItem('bonsai-hints')||'{}')}catch(e){}
+function pickTool(t){ui.tool=t;if(t==='hand')return;if(!hintSeen[t]){hintSeen[t]=1;try{localStorage.setItem('bonsai-hints',JSON.stringify(hintSeen))}catch(e){}toast(HINT[t],3200)}}
+addEventListener('keydown',e=>{if(e.key==='Escape'){ui.tool='hand';deselect()}});
 function drawWorld(dt){
  const m=metrics(),hf=W.h+accFrac,dl=clamp(Math.sin(Math.PI*(hf-6)/12)*1.5+.2,0,1);
  const raining=W.wx.rain&&hf>=W.wx.r0&&hf<W.wx.r1;
@@ -900,7 +916,7 @@ function onMove(){
 function onUp(){
  const t=ui.tool;
  if(ptr.fromTray){
-  if(!ptr.moved)ui.tool=(ptr.prevTool===t?'hand':t);
+  if(!ptr.moved)pickTool(ptr.prevTool===t?'hand':t);
   else{if(t!=='water')applyAt(t);ui.tool=ptr.prevTool}
   endPour();ptr.fromTray=false;return;
  }
@@ -1137,6 +1153,8 @@ function hud(){
 let last=performance.now(),acc=0,saveT=0,panelT=0;
 function frame(t){
  const dt=Math.min((t-last)/1000,.1);last=t;tClock+=dt;
+ // 判子亮起＝手上拿著它；有滑鼠時游標藏起來，畫面上那把工具就是游標
+ if(ui.tool!==ui._shownTool){ui._shownTool=ui.tool;document.querySelectorAll('.tool').forEach(b=>b.classList.toggle('on',b.dataset.tool===ui.tool));cv.style.cursor=(HOVER&&ui.tool!=='hand')?'none':''}
  if(started&&!document.hidden&&ui.speed>0){
   acc+=dt*ui.speed;let k=0;
   while(acc>=1&&k<64){tickHour(W);acc-=1;k++}
@@ -1168,7 +1186,7 @@ document.addEventListener('visibilitychange',()=>{last=performance.now();if(docu
  for(let i=0;i<3;i++){
   const w=load(i),b=document.createElement('button');b.className='slot'+(w?'':' empty');
   b.innerHTML='<canvas></canvas><b>存檔 '+(i+1)+(w?'':'・空的')+'</b><span>'+(w?preview(w):'點一下開始新遊戲')+'</span>';
-  b.addEventListener('click',()=>{const nw=w||newWorld();if(/#(bonsai|peak)/.test(location.hash||'')&&!nw.unlocked)unlockBonsai(nw);if(/#peak/.test(location.hash||'')){unlockJuniper(nw);nw.peak=true}enter(i,nw)});
+  b.addEventListener('click',()=>{const nw=w||newWorld();if(/#(bonsai|peak)/.test(location.hash||'')&&!nw.unlocked)unlockBonsai(nw);if(/#peak/.test(location.hash||'')){unlockJuniper(nw);nw.peak=true;const j=nw.plants.find(p=>p.sp==='juniper');if(j)j.spot='peak'}enter(i,nw)});
   box.appendChild(b);if(w)thumbs.push([w,b.firstChild]);
  }
  const drawThumbs=()=>thumbs.forEach(([w,c])=>thumb(w,c));
